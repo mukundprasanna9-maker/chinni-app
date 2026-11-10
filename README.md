@@ -41,7 +41,7 @@ The codebase strictly adheres to a **four-layer architecture** where each layer 
                     MySQL Database Server
 ```
 
-### Teaching Rules for Viva & Review
+
 - **A layer never skips another:**
   - The UI never writes SQL.
   - The API routes never do mathematical scoring calculations.
@@ -187,7 +187,7 @@ Use the **"Log a Test"** workflow during your viva to explain the full cycle:
 
 ---
 
-## 6. Viva Q&A Guide for Teammates
+## 6. Q&A 
 
 ### Q1: Why did we choose a 4-layer architecture instead of writing SQL directly in Tkinter?
 **Answer:** Separation of concerns. If we ever want to build a mobile app, web frontend, or CLI, the backend API, business logic, and database remain unchanged. It also ensures business logic (scoring formulas) can be tested with unit tests independently of the UI.
