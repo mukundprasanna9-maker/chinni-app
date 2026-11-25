@@ -10,7 +10,7 @@ Log mock tests and unit tests by ticking the exact **syllabus chapters** include
 
 | Requirement | Version | Required? | Download link |
 |---|---|---|---|
-| Python | 3.10 – 3.13 (recommended: 3.12 or 3.13) | Yes | https://www.python.org/downloads/ |
+| Python | 3.10+ (any latest stable version works) | Yes | https://www.python.org/downloads/ |
 | Git | Any recent version | Yes | https://git-scm.com/downloads |
 | MySQL Server | 8.0+ | Optional | https://dev.mysql.com/downloads/mysql/ |
 
@@ -46,11 +46,19 @@ cd ~/Projects/chinni-app
 
 ## 2 — Create the virtual environment and install packages
 
-Run these commands inside the `chinni-app` folder. Using the `.venv` Python executable directly works on every fresh Windows laptop without running into PowerShell script execution-policy blocks.
+First verify Python is installed on your machine (and make sure you are inside the `chinni-app` folder):
 
 **Windows (PowerShell):**
 ```powershell
-python -m venv .venv
+Set-Location "$env:USERPROFILE\Projects\chinni-app"
+py --version
+```
+*(If `py` is not found, try `python --version`. Note: if `python` opens the Microsoft Store or prints "Python was not found", install the latest Python (3.10+) from https://www.python.org/downloads/ and tick **"Add python.exe to PATH"**.)*
+
+Once `py --version` (or `python --version`) prints Python 3.10 or newer, create `.venv` and install packages:
+
+```powershell
+if (Get-Command py -ErrorAction SilentlyContinue) { py -m venv .venv } else { python -m venv .venv }
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
@@ -199,9 +207,10 @@ Expected output: `21 passed`.
 | Problem | Fix |
 |---|---|
 | `could not create work tree dir ... Permission denied` | You are in a protected folder (like `C:\Windows\System32` from an Admin PowerShell, or a OneDrive-locked folder). Follow Step 1 to clone into `$env:USERPROFILE\Projects` instead. |
-| `python` not found or opens Microsoft Store | Install Python 3.12 or 3.13 from python.org and tick **"Add python.exe to PATH"**, or try `py -m venv .venv` on Windows. |
+| `.\.venv\Scripts\python.exe was not recognized` | `.venv` was not created — usually because `python -m venv .venv` failed (Python wasn't installed / hit Microsoft Store stub) or you were not inside `chinni-app`. Run `Set-Location "$env:USERPROFILE\Projects\chinni-app"` and `py -m venv .venv` (or install Python 3.10+ from python.org). |
+| `python` not found or opens Microsoft Store | Install the latest Python (3.10+) from python.org and tick **"Add python.exe to PATH"**, or use `py` instead of `python` on Windows. |
 | `Activate.ps1 cannot be loaded` | Not needed if you run `.\.venv\Scripts\python.exe ...` directly as shown in Steps 2–7. (If you still want activation, run `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned` once.) |
-| `pip install` fails building wheels | Make sure you are using Python 3.10–3.13 (not 3.14+) and have an active internet connection. |
+| `pip install` fails building wheels | Upgrade pip first (`.\.venv\Scripts\python.exe -m pip install --upgrade pip`) and make sure you have an active internet connection (if testing a brand-new pre-release Python like an alpha/beta, use the latest stable release). |
 | `No module named tkinter` (Linux) | Install Tk support: `sudo apt install python3-tk`. |
 | MySQL connection refused | Ignore if testing locally — Cadence automatically falls back to `chinni_offline.db`. |
 | Login shows "Cannot reach backend" | Make sure Step 5 (`run_backend.py`) is running in another terminal first. |
