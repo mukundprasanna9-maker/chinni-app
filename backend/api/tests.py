@@ -17,8 +17,9 @@ def list_tests_for_track(track_id: int):
     track = get_track_by_id(track_id)
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
+    # get_tests_by_track already loads subject_scores; fetch group_scores separately only
+    # via get_test_by_id which does the full hydration. Avoid N+1 by calling it once per test.
     tests = get_tests_by_track(track_id)
-    # Populate full details
     return [get_test_by_id(t["id"]) for t in tests]
 
 

@@ -56,15 +56,15 @@ def create_test(
                 )
 
         conn.commit()
+        return_id = test_id
     except Exception as e:
         conn.rollback()
+        raise e
+    finally:
         cursor.close()
         conn.close()
-        raise e
 
-    cursor.close()
-    conn.close()
-    return get_test_by_id(test_id)
+    return get_test_by_id(return_id)
 
 
 def get_test_by_id(test_id: int) -> dict | None:

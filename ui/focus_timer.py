@@ -19,6 +19,10 @@ class FocusTimerScreen(ctk.CTkFrame):
         self.timer_running = False
         self._timer_job = None
 
+        # Maps for subject/group name -> id (populated from track data)
+        self._subject_map = {}   # name -> id
+        self._group_map = {}     # "SubjectName • GroupCode: GroupName" -> id
+
         self._build_ui()
         self.refresh_timer_screen()
 
@@ -65,29 +69,30 @@ class FocusTimerScreen(ctk.CTkFrame):
         tag_row = ctk.CTkFrame(self.timer_card, fg_color="transparent")
         tag_row.pack(fill="x", padx=20, pady=(15, 10))
 
-        # Subject Selector
+        # Subject Selector — populated dynamically from track data
         s_box = ctk.CTkFrame(tag_row, fg_color="transparent")
         s_box.pack(side="left", padx=(0, 15))
         ctk.CTkLabel(s_box, text="Study Subject:", font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
-        self.subject_var = ctk.StringVar(value="Mathematics")
+        self.subject_var = ctk.StringVar(value="Loading...")
         self.subject_menu = ctk.CTkOptionMenu(
             s_box,
             variable=self.subject_var,
-            values=["Mathematics", "Physics", "Chemistry"],
-            width=160,
+            values=["Loading..."],
+            command=self._on_subject_changed,
+            width=180,
         )
         self.subject_menu.pack(pady=(4, 0))
 
-        # Group Selector
+        # Group Selector — populated dynamically when subject changes
         g_box = ctk.CTkFrame(tag_row, fg_color="transparent")
         g_box.pack(side="left", padx=(0, 15))
         ctk.CTkLabel(g_box, text="Focus Group:", font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
-        self.group_var = ctk.StringVar(value="G1")
+        self.group_var = ctk.StringVar(value="Loading...")
         self.group_menu = ctk.CTkOptionMenu(
             g_box,
             variable=self.group_var,
-            values=["G1", "G2", "G3"],
-            width=140,
+            values=["Loading..."],
+            width=200,
         )
         self.group_menu.pack(pady=(4, 0))
 
@@ -112,7 +117,7 @@ class FocusTimerScreen(ctk.CTkFrame):
         )
         self.clock_label.pack(pady=20)
 
-        # Timer Controls
+        # Timer Controls — Bug fix: previously start_pause_btn was packed twice; reset btn was never shown
         ctrl_row = ctk.CTkFrame(self.timer_card, fg_color="transparent")
         ctrl_row.pack(pady=(0, 20))
 
@@ -128,7 +133,8 @@ class FocusTimerScreen(ctk.CTkFrame):
         )
         self.start_pause_btn.pack(side="left", padx=8)
 
-        ctk.CTkButton(
+        # Bug fix: previously this was never packed because start_pause_btn.pack() was called twice instead
+        self.reset_btn = ctk.CTkButton(
             ctrl_row,
             text="↺ Reset",
             font=ctk.CTkFont(size=14),
@@ -138,7 +144,7 @@ class FocusTimerScreen(ctk.CTkFrame):
             height=40,
             command=self._reset_timer,
         )
-        self.start_pause_btn.pack(side="left", padx=8)
+        self.reset_btn.pack(side="left", padx=8)
 
         ctk.CTkButton(
             ctrl_row,
@@ -189,8 +195,12 @@ class FocusTimerScreen(ctk.CTkFrame):
 
     def refresh_timer_screen(self):
         curr_student = self.app_state.get("current_student")
+        curr_track = self.app_state.get("current_track")
         if not curr_student:
             return
+
+        # Bug fix: load subjects and groups dynamically from the active track
+        self._load_subject_group_menus(curr_track)
 
         sid = curr_student["id"]
 
@@ -270,6 +280,62 @@ class FocusTimerScreen(ctk.CTkFrame):
         except Exception as e:
             print(f"[Timer Sessions Render Error] {e}")
 
+    def _load_subject_group_menus(self, curr_track):
+        """Bug fix: populate subject and group selectors from actual track data, not hardcoded strings."""
+        self._subject_map.clear()
+        self._group_map.clear()
+
+        if not curr_track:
+            return
+
+        try:
+            track_data = api_client.get_track(curr_track["id"])
+            subjects = track_data.get("subjects", [])
+
+            subject_names = [s["name"] for s in subjects]
+            if not subject_names:
+                return
+
+            self._subject_map = {s["name"]: s for s in subjects}
+
+            # Store groups by subject name for quick lookup when subject changes
+            self._all_subjects_data = subjects
+
+            self.subject_menu.configure(values=subject_names)
+            first_subject = subjects[0]["name"]
+            self.subject_var.set(first_subject)
+            self._populate_groups_for_subject(first_subject)
+
+        except Exception as e:
+            print(f"[FocusTimer] Could not load track subjects: {e}")
+
+    def _on_subject_changed(self, subject_name: str):
+        self._populate_groups_for_subject(subject_name)
+
+    def _populate_groups_for_subject(self, subject_name: str):
+        """Update the group dropdown based on the selected subject."""
+        self._group_map.clear()
+        subject_data = self._subject_map.get(subject_name)
+        if not subject_data:
+            self.group_menu.configure(values=["No groups"])
+            self.group_var.set("No groups")
+            return
+
+        groups = subject_data.get("groups", [])
+        if not groups:
+            self.group_menu.configure(values=["No groups"])
+            self.group_var.set("No groups")
+            return
+
+        group_labels = []
+        for g in groups:
+            label = f"{g['group_code']}: {g['name']}"
+            self._group_map[label] = g
+            group_labels.append(label)
+
+        self.group_menu.configure(values=group_labels)
+        self.group_var.set(group_labels[0])
+
     def _set_duration(self, minutes: int):
         self._reset_timer()
         self.selected_duration_minutes = minutes
@@ -313,15 +379,32 @@ class FocusTimerScreen(ctk.CTkFrame):
         self._update_clock_display()
 
     def _log_session(self):
+        """Bug fix: include subject_id and group_id from the actual selected dropdowns."""
         curr_student = self.app_state.get("current_student")
         if not curr_student:
             return
 
+        subject_name = self.subject_var.get()
+        group_label = self.group_var.get()
+
+        subject_data = self._subject_map.get(subject_name)
+        group_data = self._group_map.get(group_label)
+
+        subject_id = subject_data["id"] if subject_data else None
+        group_id = group_data["id"] if group_data else None
+
         payload = {
             "duration_minutes": self.selected_duration_minutes,
-            "notes": f"Completed {self.subject_var.get()} ({self.group_var.get()}) study block",
+            "notes": f"Completed {subject_name} — {group_label} study block",
             "adherence_status": "COMPLETED",
         }
+
+        # Only include subject_id / group_id if they are known
+        if subject_id is not None:
+            payload["subject_id"] = subject_id
+        if group_id is not None:
+            payload["group_id"] = group_id
+
         try:
             api_client.log_focus_session(curr_student["id"], payload)
             self._reset_timer()

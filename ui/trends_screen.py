@@ -147,16 +147,26 @@ class TrendsScreen(ctk.CTkFrame):
                 ctk.CTkLabel(self.trend_table, text="No tests recorded yet.", text_color="#94A3B8").pack(pady=15)
                 return
 
-            # Table Header
+            # Table Header — dynamically built from subject codes in first test
             th = ctk.CTkFrame(self.trend_table, fg_color="transparent")
             th.pack(fill="x", padx=15, pady=(12, 6))
 
             ctk.CTkLabel(th, text="Test", width=80, font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
             ctk.CTkLabel(th, text="Date", width=110, font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
             ctk.CTkLabel(th, text="Total Score", width=120, font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
-            ctk.CTkLabel(th, text="Maths", width=80, font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
-            ctk.CTkLabel(th, text="Physics", width=80, font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
-            ctk.CTkLabel(th, text="Chemistry", width=80, font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
+
+            # Collect all subject codes from all tests (preserving insertion order)
+            subject_code_order = []
+            seen_codes = set()
+            for t in tests:
+                for s in t.get("subject_scores", []):
+                    code = s.get("subject_code") or s.get("subject_name", "?")
+                    if code not in seen_codes:
+                        seen_codes.add(code)
+                        subject_code_order.append(code)
+
+            for code in subject_code_order:
+                ctk.CTkLabel(th, text=code, width=80, font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
             ctk.CTkLabel(th, text="Notes", font=ctk.CTkFont(size=12, weight="bold")).pack(side="left", padx=10)
 
             prev_score = None
@@ -185,15 +195,15 @@ class TrendsScreen(ctk.CTkFrame):
                     text_color=("#0284C7", "#38BDF8"),
                 ).pack(side="left")
 
-                # Extract subject scores
-                sub_scores = {s.get("subject_code", s.get("subject_name", "")): s["score"] for s in t.get("subject_scores", [])}
-                m_score = sub_scores.get("MATH", sub_scores.get("Mathematics", "-"))
-                p_score = sub_scores.get("PHY", sub_scores.get("Physics", "-"))
-                c_score = sub_scores.get("CHEM", sub_scores.get("Chemistry", "-"))
-
-                ctk.CTkLabel(r_inner, text=f"{m_score}", width=80).pack(side="left")
-                ctk.CTkLabel(r_inner, text=f"{p_score}", width=80).pack(side="left")
-                ctk.CTkLabel(r_inner, text=f"{c_score}", width=80).pack(side="left")
+                # Extract subject scores — keyed by code for dynamic columns
+                sub_scores = {
+                    s.get("subject_code") or s.get("subject_name", "?"): s["score"]
+                    for s in t.get("subject_scores", [])
+                }
+                for code in subject_code_order:
+                    score_val = sub_scores.get(code, "-")
+                    display = f"{score_val:.0f}" if isinstance(score_val, (int, float)) else str(score_val)
+                    ctk.CTkLabel(r_inner, text=display, width=80).pack(side="left")
                 ctk.CTkLabel(r_inner, text=t.get("notes", "") or "-", text_color="#94A3B8").pack(side="left", padx=10)
 
             # Bottom padding

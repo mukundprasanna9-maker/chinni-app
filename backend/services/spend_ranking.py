@@ -30,7 +30,7 @@ def rank_groups_to_focus(all_group_scores: list[dict]) -> list[dict]:
     for gid, data in latest_by_group.items():
         score = float(data.get("score", 0.0))
         max_s = float(data.get("max_score", 33.3))
-        weight = float(data.get("weight_percentage") or 33.3)
+        weight = float(data.get("weight_percentage") if data.get("weight_percentage") is not None else 33.3)
 
         deficit = max(0.0, max_s - score)
         # Opportunity index scales deficit by weight

@@ -2,6 +2,7 @@ import os
 import re
 import socket
 import sqlite3
+import time
 import mysql.connector
 from dotenv import load_dotenv
 
@@ -14,7 +15,17 @@ DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 DB_NAME = os.getenv("DB_NAME", "chinni_db")
 OFFLINE_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "chinni_offline.db")
 
+# Cache result for 30 seconds so the app can recover if MySQL starts up mid-session.
 _MYSQL_AVAILABLE = None
+_MYSQL_CHECK_TIME = 0.0
+_MYSQL_CACHE_TTL = 30.0  # seconds
+
+
+def reset_db_cache():
+    """Force a fresh MySQL availability check on next connection. Call after changing .env at runtime."""
+    global _MYSQL_AVAILABLE, _MYSQL_CHECK_TIME
+    _MYSQL_AVAILABLE = None
+    _MYSQL_CHECK_TIME = 0.0
 
 
 def get_db_config(include_db: bool = True) -> dict:
@@ -90,8 +101,9 @@ class SQLiteConnectionWrapper:
 
 
 def is_mysql_online() -> bool:
-    global _MYSQL_AVAILABLE
-    if _MYSQL_AVAILABLE is not None:
+    global _MYSQL_AVAILABLE, _MYSQL_CHECK_TIME
+    now = time.monotonic()
+    if _MYSQL_AVAILABLE is not None and (now - _MYSQL_CHECK_TIME) < _MYSQL_CACHE_TTL:
         return _MYSQL_AVAILABLE
     try:
         s = socket.socket()
@@ -100,6 +112,7 @@ def is_mysql_online() -> bool:
         s.close()
         if res != 0:
             _MYSQL_AVAILABLE = False
+            _MYSQL_CHECK_TIME = now
             return False
 
         conn = mysql.connector.connect(
@@ -111,9 +124,11 @@ def is_mysql_online() -> bool:
         )
         conn.close()
         _MYSQL_AVAILABLE = True
+        _MYSQL_CHECK_TIME = now
         return True
     except Exception:
         _MYSQL_AVAILABLE = False
+        _MYSQL_CHECK_TIME = now
         return False
 
 
@@ -267,10 +282,17 @@ def init_db():
         raw_conn.execute("PRAGMA foreign_keys = ON;")
         for stmt in SCHEMA_SQL:
             s = stmt
-            s = re.sub(r"id\s+INT\s+AUTO_INCREMENT\s+PRIMARY\s+KEY", "id INTEGER PRIMARY KEY AUTOINCREMENT", s, flags=re.IGNORECASE)
-            s = re.sub(r"AUTO_INCREMENT\s+PRIMARY\s+KEY", "PRIMARY KEY AUTOINCREMENT", s, flags=re.IGNORECASE)
-            s = re.sub(r"INT\s+AUTO_INCREMENT", "INTEGER PRIMARY KEY AUTOINCREMENT", s, flags=re.IGNORECASE)
-            s = re.sub(r"ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;", ";", s, flags=re.IGNORECASE)
+            # Bug fix: only rewrite the PK line (id INT AUTO_INCREMENT PRIMARY KEY).
+            # Previous broad regexes corrupted foreign-key columns like `student_id INT NOT NULL`
+            # into `student_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL`.
+            s = re.sub(
+                r"\bid\s+INT\s+AUTO_INCREMENT\s+PRIMARY\s+KEY",
+                "id INTEGER PRIMARY KEY AUTOINCREMENT",
+                s,
+                flags=re.IGNORECASE,
+            )
+            # Remove MySQL-only engine/charset suffix
+            s = re.sub(r"\)\s*ENGINE=InnoDB[^;]*;", ");", s, flags=re.IGNORECASE)
             raw_conn.execute(s)
         raw_conn.commit()
         raw_conn.close()
