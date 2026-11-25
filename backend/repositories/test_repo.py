@@ -10,6 +10,7 @@ def create_test(
     notes: str = "",
     subject_scores: list[dict] = None,
     group_scores: list[dict] = None,
+    chapter_ids: list[int] = None,
 ) -> dict:
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
@@ -54,6 +55,11 @@ def create_test(
                         grp.get("max_score", 33.3),
                     ),
                 )
+
+        if chapter_ids:
+            ch_query = "INSERT INTO test_chapters (test_id, chapter_id) VALUES (%s, %s)"
+            for ch_id in chapter_ids:
+                cursor.execute(ch_query, (test_id, ch_id))
 
         conn.commit()
         return_id = test_id
@@ -107,6 +113,19 @@ def get_test_by_id(test_id: int) -> dict | None:
     """
     cursor.execute(grp_query, (test_id,))
     test["group_scores"] = cursor.fetchall()
+
+    # Fetch syllabus chapters covered in this test
+    ch_query = """
+        SELECT tc.id, tc.chapter_id, sc.chapter_code, sc.name, sc.topics, sc.unit,
+               sc.subject_id, s.name AS subject_name, s.code AS subject_code
+        FROM test_chapters tc
+        JOIN syllabus_chapters sc ON tc.chapter_id = sc.id
+        JOIN subjects s ON sc.subject_id = s.id
+        WHERE tc.test_id = %s
+        ORDER BY s.id ASC, sc.id ASC
+    """
+    cursor.execute(ch_query, (test_id,))
+    test["chapters"] = cursor.fetchall()
 
     cursor.close()
     conn.close()
@@ -163,6 +182,31 @@ def get_all_group_scores_for_track(track_id: int) -> list[dict]:
     cursor.close()
     conn.close()
     return scores
+
+
+def get_chapter_test_scores_for_track(track_id: int) -> list[dict]:
+    """Fetch each syllabus chapter tested in a track along with its subject's score in that test."""
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    query = """
+        SELECT t.id AS test_id, t.test_code, t.test_date,
+               s.id AS subject_id, s.name AS subject_name, s.code AS subject_code,
+               sc.id AS chapter_id, sc.chapter_code, sc.name AS chapter_name, sc.unit,
+               COALESCE(tss.score, t.total_score) AS score,
+               COALESCE(tss.max_score, t.max_score) AS max_score
+        FROM test_chapters tc
+        JOIN tests t ON tc.test_id = t.id
+        JOIN syllabus_chapters sc ON tc.chapter_id = sc.id
+        JOIN subjects s ON sc.subject_id = s.id
+        LEFT JOIN test_subject_scores tss ON tss.test_id = t.id AND tss.subject_id = s.id
+        WHERE t.track_id = %s
+        ORDER BY t.test_date ASC, t.id ASC, s.id ASC, sc.id ASC
+    """
+    cursor.execute(query, (track_id,))
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return rows
 
 
 def delete_test(test_id: int) -> bool:

@@ -25,6 +25,7 @@ class TestCreate(BaseModel):
     notes: Optional[str] = ""
     subject_scores: List[SubjectScoreInput] = []
     group_scores: List[GroupScoreInput] = []
+    chapter_ids: List[int] = []
 
 
 class SubjectScoreResponse(BaseModel):
@@ -49,6 +50,18 @@ class GroupScoreResponse(BaseModel):
     max_score: float
 
 
+class TestChapterResponse(BaseModel):
+    id: Optional[int] = None
+    chapter_id: int
+    chapter_code: Optional[str] = ""
+    name: Optional[str] = ""
+    topics: Optional[str] = ""
+    unit: Optional[str] = ""
+    subject_id: Optional[int] = None
+    subject_name: Optional[str] = ""
+    subject_code: Optional[str] = ""
+
+
 class TestResponse(BaseModel):
     id: int
     track_id: int
@@ -61,3 +74,4 @@ class TestResponse(BaseModel):
     created_at: Optional[datetime] = None
     subject_scores: Optional[List[SubjectScoreResponse]] = []
     group_scores: Optional[List[GroupScoreResponse]] = []
+    chapters: Optional[List[TestChapterResponse]] = []

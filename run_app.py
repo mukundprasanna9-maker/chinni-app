@@ -22,8 +22,6 @@ class CadenceApp(ctk.CTk):
         super().__init__()
 
         self.title("Cadence (chinni-app) — Study Rhythm & Multi-Subject Tracker")
-        self.geometry("1120x760")
-        self.minsize(980, 680)
 
         # Shared application state across screens
         self.app_state = {
@@ -34,21 +32,22 @@ class CadenceApp(ctk.CTk):
         }
         self.screens = {}
         self.nav_buttons = {}
-        self.login_window = None
+        self.login_page = None
 
-        # Hide main window until user logs in or signs up
-        self.withdraw()
         self._show_login()
 
     # ── Auth Flow ──────────────────────────────────────────────────────
 
     def _show_login(self):
-        """Open the LoginPage popup while keeping the main window hidden."""
-        self.login_window = LoginPage(
-            self,
-            on_success_callback=self._on_login_success,
-            on_close_callback=self.destroy,
-        )
+        """Show the LoginPage inside the main window before unlocking the dashboard."""
+        self.title("Cadence - Login")
+        self.minsize(450, 470)
+        self.geometry("450x470")
+        self.login_page = LoginPage(self, on_success_callback=self._on_login_success)
+        self.login_page.pack(fill="both", expand=True)
+        self.deiconify()
+        self.lift()
+        self.focus_force()
 
     def _on_login_success(self, user: dict):
         """Called once LoginPage authenticates the user."""
@@ -60,11 +59,18 @@ class CadenceApp(ctk.CTk):
             "current_track": None,
         }
 
+        if self.login_page and self.login_page.winfo_exists():
+            self.login_page.destroy()
+            self.login_page = None
+
+        self.title("Cadence (chinni-app) — Study Rhythm & Multi-Subject Tracker")
+        self.minsize(980, 680)
+        self.geometry("1120x760")
+
         self._build_sidebar()
         self._build_main_container()
         self._check_backend_status()
         self.navigate("home")
-        self.deiconify()
 
     def _on_logout(self):
         """Log out current user, tear down UI, and return to LoginPage."""
@@ -79,7 +85,6 @@ class CadenceApp(ctk.CTk):
         if hasattr(self, "main_container") and self.main_container.winfo_exists():
             self.main_container.destroy()
 
-        self.withdraw()
         self._show_login()
 
     # ── Main UI ────────────────────────────────────────────────────────

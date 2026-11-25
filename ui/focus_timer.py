@@ -19,9 +19,10 @@ class FocusTimerScreen(ctk.CTkFrame):
         self.timer_running = False
         self._timer_job = None
 
-        # Maps for subject/group name -> id (populated from track data)
-        self._subject_map = {}   # name -> id
-        self._group_map = {}     # "SubjectName • GroupCode: GroupName" -> id
+        # Maps for subject/chapter name -> data (populated from track data)
+        self._subject_map = {}   # name -> subject dict
+        self._chapter_map = {}   # "M01: Sets, Relations & Functions" -> chapter dict
+        self._chapter_is_legacy_group = False
 
         self._build_ui()
         self.refresh_timer_screen()
@@ -83,16 +84,16 @@ class FocusTimerScreen(ctk.CTkFrame):
         )
         self.subject_menu.pack(pady=(4, 0))
 
-        # Group Selector — populated dynamically when subject changes
+        # Chapter Selector — populated dynamically when subject changes
         g_box = ctk.CTkFrame(tag_row, fg_color="transparent")
         g_box.pack(side="left", padx=(0, 15))
-        ctk.CTkLabel(g_box, text="Focus Group:", font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
+        ctk.CTkLabel(g_box, text="Focus Chapter:", font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
         self.group_var = ctk.StringVar(value="Loading...")
         self.group_menu = ctk.CTkOptionMenu(
             g_box,
             variable=self.group_var,
             values=["Loading..."],
-            width=200,
+            width=240,
         )
         self.group_menu.pack(pady=(4, 0))
 
@@ -250,7 +251,8 @@ class FocusTimerScreen(ctk.CTkFrame):
                 ).pack(side="left", padx=(0, 15))
 
                 sub_str = s.get("subject_name") or "Subject Block"
-                grp_str = f" • {s.get('group_name')}" if s.get("group_name") else ""
+                ch_name = s.get("chapter_name") or s.get("group_name")
+                grp_str = f" • {ch_name}" if ch_name else ""
                 ctk.CTkLabel(
                     inner,
                     text=f"{sub_str}{grp_str}",
@@ -281,9 +283,9 @@ class FocusTimerScreen(ctk.CTkFrame):
             print(f"[Timer Sessions Render Error] {e}")
 
     def _load_subject_group_menus(self, curr_track):
-        """Bug fix: populate subject and group selectors from actual track data, not hardcoded strings."""
+        """Populate subject and chapter selectors from actual track data."""
         self._subject_map.clear()
-        self._group_map.clear()
+        self._chapter_map.clear()
 
         if not curr_track:
             return
@@ -297,8 +299,6 @@ class FocusTimerScreen(ctk.CTkFrame):
                 return
 
             self._subject_map = {s["name"]: s for s in subjects}
-
-            # Store groups by subject name for quick lookup when subject changes
             self._all_subjects_data = subjects
 
             self.subject_menu.configure(values=subject_names)
@@ -313,28 +313,40 @@ class FocusTimerScreen(ctk.CTkFrame):
         self._populate_groups_for_subject(subject_name)
 
     def _populate_groups_for_subject(self, subject_name: str):
-        """Update the group dropdown based on the selected subject."""
-        self._group_map.clear()
+        """Update the chapter dropdown based on the selected subject."""
+        self._chapter_map.clear()
+        self._chapter_is_legacy_group = False
         subject_data = self._subject_map.get(subject_name)
         if not subject_data:
-            self.group_menu.configure(values=["No groups"])
-            self.group_var.set("No groups")
+            self.group_menu.configure(values=["No chapters"])
+            self.group_var.set("No chapters")
+            return
+
+        chapters = subject_data.get("chapters", [])
+        if chapters:
+            labels = []
+            for ch in chapters:
+                label = f"{ch['chapter_code']}: {ch['name']}"
+                self._chapter_map[label] = ch
+                labels.append(label)
+            self.group_menu.configure(values=labels)
+            self.group_var.set(labels[0])
             return
 
         groups = subject_data.get("groups", [])
-        if not groups:
-            self.group_menu.configure(values=["No groups"])
-            self.group_var.set("No groups")
+        if groups:
+            self._chapter_is_legacy_group = True
+            labels = []
+            for g in groups:
+                label = f"{g['group_code']}: {g['name']}"
+                self._chapter_map[label] = g
+                labels.append(label)
+            self.group_menu.configure(values=labels)
+            self.group_var.set(labels[0])
             return
 
-        group_labels = []
-        for g in groups:
-            label = f"{g['group_code']}: {g['name']}"
-            self._group_map[label] = g
-            group_labels.append(label)
-
-        self.group_menu.configure(values=group_labels)
-        self.group_var.set(group_labels[0])
+        self.group_menu.configure(values=["No chapters"])
+        self.group_var.set("No chapters")
 
     def _set_duration(self, minutes: int):
         self._reset_timer()
@@ -379,31 +391,32 @@ class FocusTimerScreen(ctk.CTkFrame):
         self._update_clock_display()
 
     def _log_session(self):
-        """Bug fix: include subject_id and group_id from the actual selected dropdowns."""
+        """Include subject_id and chapter_id from the actual selected dropdowns."""
         curr_student = self.app_state.get("current_student")
         if not curr_student:
             return
 
         subject_name = self.subject_var.get()
-        group_label = self.group_var.get()
+        chapter_label = self.group_var.get()
 
         subject_data = self._subject_map.get(subject_name)
-        group_data = self._group_map.get(group_label)
+        chapter_data = self._chapter_map.get(chapter_label)
 
         subject_id = subject_data["id"] if subject_data else None
-        group_id = group_data["id"] if group_data else None
 
         payload = {
             "duration_minutes": self.selected_duration_minutes,
-            "notes": f"Completed {subject_name} — {group_label} study block",
+            "notes": f"Completed {subject_name} — {chapter_label} study block",
             "adherence_status": "COMPLETED",
         }
 
-        # Only include subject_id / group_id if they are known
         if subject_id is not None:
             payload["subject_id"] = subject_id
-        if group_id is not None:
-            payload["group_id"] = group_id
+        if chapter_data is not None:
+            if self._chapter_is_legacy_group:
+                payload["group_id"] = chapter_data["id"]
+            else:
+                payload["chapter_id"] = chapter_data["id"]
 
         try:
             api_client.log_focus_session(curr_student["id"], payload)

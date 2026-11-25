@@ -19,6 +19,22 @@ class GroupResponse(BaseModel):
     weight_percentage: Optional[float] = 0.0
 
 
+class ChapterCreate(BaseModel):
+    chapter_code: str = Field(..., max_length=20, description="Chapter code, e.g. M01, P01")
+    name: str = Field(..., max_length=150, description="Chapter name")
+    topics: Optional[str] = ""
+    unit: Optional[str] = ""
+
+
+class ChapterResponse(BaseModel):
+    id: int
+    subject_id: int
+    chapter_code: str
+    name: str
+    topics: Optional[str] = ""
+    unit: Optional[str] = ""
+
+
 class SubjectCreate(BaseModel):
     name: str = Field(..., max_length=100, description="Subject name, e.g. Mathematics, Physics, Chemistry")
     code: str = Field(..., max_length=20, description="Subject short code, e.g. MATH, PHY, CHEM")
@@ -34,6 +50,7 @@ class SubjectResponse(BaseModel):
     max_marks: int
     target_marks: int
     groups: Optional[List[GroupResponse]] = []
+    chapters: Optional[List[ChapterResponse]] = []
 
 
 class TrackCreate(BaseModel):

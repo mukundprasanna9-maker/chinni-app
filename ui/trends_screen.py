@@ -61,7 +61,7 @@ class TrendsScreen(ctk.CTkFrame):
 
         ctk.CTkLabel(
             rank_head,
-            text="🎯 Recommended Focus & Study Hour Allocation (Next 20 Hours)",
+            text="🎯 Recommended Chapter Focus & Study Hour Allocation (Next 20 Hours)",
             font=ctk.CTkFont(size=15, weight="bold"),
             text_color=("#0F172A", "#38BDF8"),
         ).pack(side="left")
@@ -97,7 +97,7 @@ class TrendsScreen(ctk.CTkFrame):
             if not allocations:
                 ctk.CTkLabel(
                     self.rankings_container,
-                    text="Log more tests to calculate subject and group focus recommendations.",
+                    text="Log tests with syllabus chapters to calculate chapter focus recommendations.",
                     text_color="#94A3B8",
                 ).pack(pady=10)
             else:

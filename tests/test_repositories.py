@@ -13,12 +13,15 @@ from backend.repositories.track_repo import (
     get_subjects_by_track,
     create_group,
     get_groups_by_subject,
+    create_chapter,
+    get_chapters_by_subject,
 )
 from backend.repositories.test_repo import (
     create_test,
     get_test_by_id,
     get_tests_by_track,
     get_all_group_scores_for_track,
+    get_chapter_test_scores_for_track,
 )
 from backend.repositories.plan_repo import (
     create_study_plan,
@@ -140,3 +143,35 @@ def test_plans_and_focus_sessions():
     assert session["duration_minutes"] == 45
     sessions = get_focus_sessions(student["id"])
     assert len(sessions) >= 1
+
+
+def test_syllabus_chapters_and_chapter_test_logging():
+    student = create_student(name="ChapterTester", target_score=240)
+    track = create_track(student["id"], "JEE Main 2026", target_score=240, max_score=300)
+    sub_m = create_subject(track["id"], "Mathematics", "MATH", max_marks=100)
+    sub_p = create_subject(track["id"], "Physics", "PHY", max_marks=100)
+
+    ch1 = create_chapter(sub_m["id"], "M01", "Sets & Functions", "Sets, Relations", "Algebra")
+    ch2 = create_chapter(sub_m["id"], "M02", "Quadratics", "Roots, Discriminant", "Algebra")
+    ch3 = create_chapter(sub_p["id"], "P01", "Kinematics", "1D, 2D motion", "Mechanics")
+
+    assert len(get_chapters_by_subject(sub_m["id"])) == 2
+
+    test_rec = create_test(
+        track_id=track["id"],
+        test_code="PT1",
+        test_date="2026-11-20",
+        total_score=130.0,
+        max_score=200.0,
+        notes="Part test on Algebra & Kinematics",
+        subject_scores=[
+            {"subject_id": sub_m["id"], "score": 60.0, "max_score": 100.0},
+            {"subject_id": sub_p["id"], "score": 70.0, "max_score": 100.0},
+        ],
+        chapter_ids=[ch1["id"], ch3["id"]],
+    )
+    assert len(test_rec["chapters"]) == 2
+    assert {c["chapter_code"] for c in test_rec["chapters"]} == {"M01", "P01"}
+
+    ch_perf = get_chapter_test_scores_for_track(track["id"])
+    assert len(ch_perf) == 2

@@ -4,11 +4,16 @@ from backend.repositories.test_repo import (
     get_tests_by_track,
     get_test_by_id,
     get_all_group_scores_for_track,
+    get_chapter_test_scores_for_track,
 )
 from backend.repositories.plan_repo import get_study_plans
 from backend.repositories.student_repo import get_student_by_id
 from backend.services.scoring import aggregate_track_performance
-from backend.services.spend_ranking import rank_groups_to_focus, rank_subjects_to_focus
+from backend.services.spend_ranking import (
+    rank_groups_to_focus,
+    rank_chapters_to_focus,
+    rank_subjects_to_focus,
+)
 from backend.services.planning import allocate_study_hours, summarize_adherence
 
 router = APIRouter(tags=["Analytics & Trends"])
@@ -31,13 +36,19 @@ def get_focus_rankings(track_id: int, available_hours: float = 20.0):
     track = get_track_by_id(track_id)
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
-    all_group_scores = get_all_group_scores_for_track(track_id)
-    ranked_groups = rank_groups_to_focus(all_group_scores)
-    allocations = allocate_study_hours(ranked_groups, total_hours=available_hours)
+
+    chapter_scores = get_chapter_test_scores_for_track(track_id)
+    if chapter_scores:
+        ranked_items = rank_chapters_to_focus(chapter_scores)
+    else:
+        all_group_scores = get_all_group_scores_for_track(track_id)
+        ranked_items = rank_groups_to_focus(all_group_scores)
+
+    allocations = allocate_study_hours(ranked_items, total_hours=available_hours)
     return {
         "track_id": track_id,
         "track_name": track["name"],
-        "ranked_groups": ranked_groups,
+        "ranked_groups": ranked_items,
         "recommended_allocations": allocations,
     }
 

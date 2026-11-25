@@ -7,6 +7,8 @@ from backend.schemas.track import (
     SubjectResponse,
     GroupCreate,
     GroupResponse,
+    ChapterCreate,
+    ChapterResponse,
 )
 from backend.repositories.student_repo import get_student_by_id
 from backend.repositories.track_repo import (
@@ -18,6 +20,8 @@ from backend.repositories.track_repo import (
     get_subject_by_id,
     create_group,
     get_groups_by_subject,
+    create_chapter,
+    get_chapters_by_subject,
 )
 
 router = APIRouter(tags=["Tracks & Subjects"])
@@ -27,6 +31,7 @@ def _hydrate_track(track: dict) -> dict:
     subjects = get_subjects_by_track(track["id"])
     for s in subjects:
         s["groups"] = get_groups_by_subject(s["id"])
+        s["chapters"] = get_chapters_by_subject(s["id"])
     track["subjects"] = subjects
     return track
 
@@ -64,6 +69,7 @@ def add_subject(track_id: int, payload: SubjectCreate):
         raise HTTPException(status_code=404, detail="Track not found")
     sub = create_subject(track_id, payload.name, payload.code, payload.max_marks, payload.target_marks)
     sub["groups"] = []
+    sub["chapters"] = []
     return sub
 
 
@@ -78,4 +84,18 @@ def add_group(subject_id: int, payload: GroupCreate):
         name=payload.name,
         description=payload.description or "",
         weight_percentage=payload.weight_percentage or 33.3,
+    )
+
+
+@router.post("/subjects/{subject_id}/chapters", response_model=ChapterResponse, status_code=status.HTTP_201_CREATED)
+def add_chapter(subject_id: int, payload: ChapterCreate):
+    sub = get_subject_by_id(subject_id)
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subject not found")
+    return create_chapter(
+        subject_id=subject_id,
+        chapter_code=payload.chapter_code,
+        name=payload.name,
+        topics=payload.topics or "",
+        unit=payload.unit or "",
     )

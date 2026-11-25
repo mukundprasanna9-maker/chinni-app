@@ -41,6 +41,7 @@ def log_test(track_id: int, payload: TestCreate):
         notes=payload.notes or "",
         subject_scores=subject_payloads,
         group_scores=group_payloads,
+        chapter_ids=payload.chapter_ids,
     )
     return test_record
 

@@ -139,3 +139,75 @@ def get_groups_by_track(track_id: int) -> list[dict]:
     cursor.close()
     conn.close()
     return groups
+
+
+def create_chapter(
+    subject_id: int,
+    chapter_code: str,
+    name: str,
+    topics: str = "",
+    unit: str = "",
+) -> dict:
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    query = """
+        INSERT INTO syllabus_chapters (subject_id, chapter_code, name, topics, unit)
+        VALUES (%s, %s, %s, %s, %s)
+    """
+    cursor.execute(query, (subject_id, chapter_code, name, topics, unit))
+    conn.commit()
+    chapter_id = cursor.lastrowid
+    cursor.close()
+    conn.close()
+    return get_chapter_by_id(chapter_id)
+
+
+def get_chapter_by_id(chapter_id: int) -> dict | None:
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    query = """
+        SELECT sc.id, sc.subject_id, sc.chapter_code, sc.name, sc.topics, sc.unit,
+               s.name AS subject_name, s.code AS subject_code, s.track_id
+        FROM syllabus_chapters sc
+        JOIN subjects s ON sc.subject_id = s.id
+        WHERE sc.id = %s
+    """
+    cursor.execute(query, (chapter_id,))
+    chapter = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    return chapter
+
+
+def get_chapters_by_subject(subject_id: int) -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    query = """
+        SELECT id, subject_id, chapter_code, name, topics, unit
+        FROM syllabus_chapters
+        WHERE subject_id = %s
+        ORDER BY id ASC
+    """
+    cursor.execute(query, (subject_id,))
+    chapters = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return chapters
+
+
+def get_chapters_by_track(track_id: int) -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    query = """
+        SELECT sc.id, sc.subject_id, sc.chapter_code, sc.name, sc.topics, sc.unit,
+               s.name AS subject_name, s.code AS subject_code
+        FROM syllabus_chapters sc
+        JOIN subjects s ON sc.subject_id = s.id
+        WHERE s.track_id = %s
+        ORDER BY s.id ASC, sc.id ASC
+    """
+    cursor.execute(query, (track_id,))
+    chapters = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return chapters

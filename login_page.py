@@ -13,18 +13,11 @@ TEXT_COLOR = "#ffffff"
 ACCENT_COLOR = "#3a86ff"
 
 
-class LoginPage(ctk.CTkToplevel):
-    def __init__(self, parent, on_success_callback, on_close_callback=None):
-        super().__init__(parent)
-        self.title("Cadence - Login")
-        self.geometry("450x470")
-        self.resizable(False, False)
-        self.configure(fg_color=BG_COLOR)
+class LoginPage(ctk.CTkFrame):
+    def __init__(self, parent, on_success_callback):
+        super().__init__(parent, fg_color=BG_COLOR)
         self.on_success_callback = on_success_callback
-        self.on_close_callback = on_close_callback
         self._mode = "login"  # "login" or "signup"
-
-        self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         self.card = ctk.CTkFrame(self, fg_color=CARD_BG, corner_radius=12)
         self.card.pack(fill="both", expand=True, padx=25, pady=25)
@@ -118,22 +111,15 @@ class LoginPage(ctk.CTkToplevel):
     def _toggle_mode(self):
         if self._mode == "login":
             self._mode = "signup"
-            self.title("Cadence - Sign Up")
             self.mode_label.configure(text="Create a New Account")
             self.submit_btn.configure(text="Sign Up")
             self.toggle_btn.configure(text="Already have an account? Log In")
         else:
             self._mode = "login"
-            self.title("Cadence - Login")
             self.mode_label.configure(text="Log In to Your Account")
             self.submit_btn.configure(text="Login")
             self.toggle_btn.configure(text="Don't have an account? Sign Up")
         self.status_label.configure(text="")
-
-    def _on_close(self):
-        self.destroy()
-        if self.on_close_callback:
-            self.on_close_callback()
 
     def handle_submit(self):
         username = self.username_entry.get().strip()
@@ -153,7 +139,6 @@ class LoginPage(ctk.CTkToplevel):
             else:
                 user = api_client.signup(username, password)
 
-            self.destroy()
             self.on_success_callback(user)
         except Exception as e:
             err = str(e)

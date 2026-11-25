@@ -196,6 +196,17 @@ SCHEMA_SQL = [
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     """,
     """
+    CREATE TABLE IF NOT EXISTS syllabus_chapters (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        subject_id INT NOT NULL,
+        chapter_code VARCHAR(20) NOT NULL,
+        name VARCHAR(150) NOT NULL,
+        topics TEXT,
+        unit VARCHAR(100) DEFAULT '',
+        FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    """,
+    """
     CREATE TABLE IF NOT EXISTS tests (
         id INT AUTO_INCREMENT PRIMARY KEY,
         track_id INT NOT NULL,
@@ -234,6 +245,15 @@ SCHEMA_SQL = [
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     """,
     """
+    CREATE TABLE IF NOT EXISTS test_chapters (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        test_id INT NOT NULL,
+        chapter_id INT NOT NULL,
+        FOREIGN KEY (test_id) REFERENCES tests(id) ON DELETE CASCADE,
+        FOREIGN KEY (chapter_id) REFERENCES syllabus_chapters(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    """,
+    """
     CREATE TABLE IF NOT EXISTS study_plans (
         id INT AUTO_INCREMENT PRIMARY KEY,
         student_id INT NOT NULL,
@@ -256,13 +276,15 @@ SCHEMA_SQL = [
         student_id INT NOT NULL,
         subject_id INT,
         group_id INT,
+        chapter_id INT,
         duration_minutes INT NOT NULL,
         adherence_status VARCHAR(50) DEFAULT 'COMPLETED',
         notes TEXT,
         completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
         FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE SET NULL,
-        FOREIGN KEY (group_id) REFERENCES subject_groups(id) ON DELETE SET NULL
+        FOREIGN KEY (group_id) REFERENCES subject_groups(id) ON DELETE SET NULL,
+        FOREIGN KEY (chapter_id) REFERENCES syllabus_chapters(id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     """
 ]
@@ -290,6 +312,12 @@ def init_db():
         except Exception:
             cursor.execute("ALTER TABLE students ADD COLUMN user_id INT DEFAULT NULL")
             cursor.execute("ALTER TABLE students ADD CONSTRAINT fk_students_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE")
+        # Migration: add chapter_id column to focus_sessions if it doesn't exist
+        try:
+            cursor.execute("SELECT chapter_id FROM focus_sessions LIMIT 1")
+        except Exception:
+            cursor.execute("ALTER TABLE focus_sessions ADD COLUMN chapter_id INT DEFAULT NULL")
+            cursor.execute("ALTER TABLE focus_sessions ADD CONSTRAINT fk_focus_chapter FOREIGN KEY (chapter_id) REFERENCES syllabus_chapters(id) ON DELETE SET NULL")
         db_conn.commit()
         cursor.close()
         db_conn.close()
@@ -317,6 +345,11 @@ def init_db():
             raw_conn.execute("SELECT user_id FROM students LIMIT 1")
         except Exception:
             raw_conn.execute("ALTER TABLE students ADD COLUMN user_id INTEGER DEFAULT NULL REFERENCES users(id)")
+        # Migration: add chapter_id column to focus_sessions if it doesn't exist (SQLite)
+        try:
+            raw_conn.execute("SELECT chapter_id FROM focus_sessions LIMIT 1")
+        except Exception:
+            raw_conn.execute("ALTER TABLE focus_sessions ADD COLUMN chapter_id INTEGER DEFAULT NULL REFERENCES syllabus_chapters(id)")
         raw_conn.commit()
         raw_conn.close()
     return True

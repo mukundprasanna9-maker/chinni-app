@@ -103,3 +103,71 @@ def rank_subjects_to_focus(subjects: list[dict], test_records: list[dict]) -> li
 
     ranked.sort(key=lambda x: x["gap_to_target"], reverse=True)
     return ranked
+
+
+def rank_chapters_to_focus(chapter_test_records: list[dict]) -> list[dict]:
+    """Ranks syllabus chapters by deficit across the tests where each chapter appeared.
+
+    For each chapter included in logged tests, averages the subject percentage
+    achieved on tests covering that chapter. Chapters tested in lower-scoring
+    attempts receive higher priority and study-hour recommendations.
+    """
+    if not chapter_test_records:
+        return []
+
+    by_chapter = {}
+    for entry in chapter_test_records:
+        cid = entry["chapter_id"]
+        score = float(entry.get("score", 0.0))
+        max_s = float(entry.get("max_score") or 100.0)
+        pct = (score / max_s) * 100.0 if max_s > 0 else 0.0
+
+        if cid not in by_chapter:
+            by_chapter[cid] = {
+                "chapter_id": cid,
+                "chapter_code": entry.get("chapter_code", ""),
+                "chapter_name": entry.get("chapter_name", ""),
+                "subject_name": entry.get("subject_name", ""),
+                "subject_code": entry.get("subject_code", ""),
+                "unit": entry.get("unit", ""),
+                "pcts": [],
+                "latest_score": score,
+                "max_score": max_s,
+            }
+        by_chapter[cid]["pcts"].append(pct)
+        by_chapter[cid]["latest_score"] = score
+        by_chapter[cid]["max_score"] = max_s
+
+    rankings = []
+    for cid, data in by_chapter.items():
+        avg_pct = round(sum(data["pcts"]) / len(data["pcts"]), 1)
+        deficit = round(max(0.0, 100.0 - avg_pct), 2)
+        opportunity_index = round(deficit * (1.0 + 0.1 * (len(data["pcts"]) - 1)), 2)
+
+        if avg_pct < 60.0:
+            priority = "HIGH"
+        elif avg_pct < 75.0:
+            priority = "MEDIUM"
+        else:
+            priority = "LOW"
+
+        rankings.append({
+            "group_id": cid,
+            "chapter_id": cid,
+            "group_code": data["chapter_code"],
+            "group_name": data["chapter_name"],
+            "chapter_code": data["chapter_code"],
+            "chapter_name": data["chapter_name"],
+            "subject_name": data["subject_name"],
+            "subject_code": data["subject_code"],
+            "latest_score": data["latest_score"],
+            "max_score": data["max_score"],
+            "deficit": deficit,
+            "percentage": avg_pct,
+            "opportunity_index": opportunity_index,
+            "priority": priority,
+            "tests_covered": len(data["pcts"]),
+        })
+
+    rankings.sort(key=lambda x: (x["opportunity_index"], x["deficit"]), reverse=True)
+    return rankings

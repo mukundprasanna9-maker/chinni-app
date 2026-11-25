@@ -71,4 +71,5 @@ def add_focus_session(student_id: int, payload: FocusSessionCreate):
         duration_minutes=payload.duration_minutes,
         notes=payload.notes or "",
         adherence_status=payload.adherence_status or "COMPLETED",
+        chapter_id=payload.chapter_id,
     )

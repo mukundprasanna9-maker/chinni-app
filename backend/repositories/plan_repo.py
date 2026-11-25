@@ -80,16 +80,17 @@ def create_focus_session(
     duration_minutes: int,
     notes: str = "",
     adherence_status: str = "COMPLETED",
+    chapter_id: int | None = None,
 ) -> dict:
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
     query = """
-        INSERT INTO focus_sessions (student_id, subject_id, group_id, duration_minutes, notes, adherence_status)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO focus_sessions (student_id, subject_id, group_id, chapter_id, duration_minutes, notes, adherence_status)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
     """
     cursor.execute(
         query,
-        (student_id, subject_id, group_id, duration_minutes, notes, adherence_status),
+        (student_id, subject_id, group_id, chapter_id, duration_minutes, notes, adherence_status),
     )
     conn.commit()
     session_id = cursor.lastrowid
@@ -102,12 +103,14 @@ def get_focus_session_by_id(session_id: int) -> dict | None:
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
     query = """
-        SELECT fs.id, fs.student_id, fs.subject_id, fs.group_id,
+        SELECT fs.id, fs.student_id, fs.subject_id, fs.group_id, fs.chapter_id,
                fs.duration_minutes, fs.adherence_status, fs.notes, fs.completed_at,
-               s.name AS subject_name, sg.name AS group_name, sg.group_code
+               s.name AS subject_name, sg.name AS group_name, sg.group_code,
+               sc.name AS chapter_name, sc.chapter_code
         FROM focus_sessions fs
         LEFT JOIN subjects s ON fs.subject_id = s.id
         LEFT JOIN subject_groups sg ON fs.group_id = sg.id
+        LEFT JOIN syllabus_chapters sc ON fs.chapter_id = sc.id
         WHERE fs.id = %s
     """
     cursor.execute(query, (session_id,))
@@ -121,12 +124,14 @@ def get_focus_sessions(student_id: int) -> list[dict]:
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
     query = """
-        SELECT fs.id, fs.student_id, fs.subject_id, fs.group_id,
+        SELECT fs.id, fs.student_id, fs.subject_id, fs.group_id, fs.chapter_id,
                fs.duration_minutes, fs.adherence_status, fs.notes, fs.completed_at,
-               s.name AS subject_name, sg.name AS group_name, sg.group_code
+               s.name AS subject_name, sg.name AS group_name, sg.group_code,
+               sc.name AS chapter_name, sc.chapter_code
         FROM focus_sessions fs
         LEFT JOIN subjects s ON fs.subject_id = s.id
         LEFT JOIN subject_groups sg ON fs.group_id = sg.id
+        LEFT JOIN syllabus_chapters sc ON fs.chapter_id = sc.id
         WHERE fs.student_id = %s
         ORDER BY fs.completed_at DESC
     """

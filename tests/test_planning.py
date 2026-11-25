@@ -1,4 +1,4 @@
-from backend.services.spend_ranking import rank_groups_to_focus, rank_subjects_to_focus
+from backend.services.spend_ranking import rank_groups_to_focus, rank_subjects_to_focus, rank_chapters_to_focus
 from backend.services.planning import (
     calculate_adherence_percentage,
     allocate_study_hours,
@@ -83,3 +83,15 @@ def test_summarize_adherence():
     assert summary["total_actual_hours"] == 8.5
     assert summary["overall_adherence_percent"] == 85.0
     assert summary["status"] == "ON TRACK"
+
+
+def test_spend_ranking_chapters():
+    chapter_records = [
+        {"chapter_id": 10, "chapter_code": "P04", "chapter_name": "Rotational Motion", "subject_name": "Physics", "subject_code": "PHY", "score": 45.0, "max_score": 100.0},
+        {"chapter_id": 11, "chapter_code": "C01", "chapter_name": "Mole Concept", "subject_name": "Chemistry", "subject_code": "CHEM", "score": 82.0, "max_score": 100.0},
+    ]
+    ranked = rank_chapters_to_focus(chapter_records)
+    assert len(ranked) == 2
+    assert ranked[0]["chapter_name"] == "Rotational Motion"
+    assert ranked[0]["priority"] == "HIGH"
+    assert ranked[1]["priority"] == "LOW"

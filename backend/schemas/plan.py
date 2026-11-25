@@ -35,6 +35,7 @@ class StudyPlanResponse(BaseModel):
 class FocusSessionCreate(BaseModel):
     subject_id: Optional[int] = None
     group_id: Optional[int] = None
+    chapter_id: Optional[int] = None
     duration_minutes: int = Field(..., gt=0)
     notes: Optional[str] = ""
     adherence_status: Optional[str] = "COMPLETED"
@@ -45,6 +46,7 @@ class FocusSessionResponse(BaseModel):
     student_id: int
     subject_id: Optional[int] = None
     group_id: Optional[int] = None
+    chapter_id: Optional[int] = None
     duration_minutes: int
     adherence_status: str
     notes: Optional[str] = ""
@@ -52,3 +54,5 @@ class FocusSessionResponse(BaseModel):
     subject_name: Optional[str] = None
     group_name: Optional[str] = None
     group_code: Optional[str] = None
+    chapter_name: Optional[str] = None
+    chapter_code: Optional[str] = None
