@@ -8,68 +8,78 @@ Log mock tests and unit tests by ticking the exact **syllabus chapters** include
 
 ## What you need before you start
 
-| Requirement | Minimum version | Required? | Download link |
+| Requirement | Version | Required? | Download link |
 |---|---|---|---|
-| Python | 3.10 | Yes | https://www.python.org/downloads/ |
-| Git | any | Yes | https://git-scm.com/downloads |
-| MySQL Server | 8.0 | Optional | https://dev.mysql.com/downloads/mysql/ |
+| Python | 3.10 – 3.13 (recommended: 3.12 or 3.13) | Yes | https://www.python.org/downloads/ |
+| Git | Any recent version | Yes | https://git-scm.com/downloads |
+| MySQL Server | 8.0+ | Optional | https://dev.mysql.com/downloads/mysql/ |
 
-> **During Python install on Windows:** tick **"Add Python to PATH"** before clicking Install Now.
+> **Important during Python install on Windows:**
+> Tick **"Add python.exe to PATH"** on the very first installer screen before clicking **Install Now**.
 >
-> **No MySQL installed?** That is completely fine — if the app cannot reach MySQL, it automatically uses a local SQLite file (`chinni_offline.db`), so you can run everything out of the box on a fresh laptop without installing MySQL.
+> **No MySQL installed?** No problem — if Cadence cannot reach MySQL, it automatically creates and uses a local SQLite database (`chinni_offline.db`), so everything runs out of the box on a fresh laptop.
 
 ---
 
-## 1 — Clone the repository
+## 1 — Open a regular terminal and clone the repository
 
-Open a terminal (**PowerShell** on Windows, **Terminal** on Mac/Linux) and run:
+On Windows, open a **normal (non-Administrator) PowerShell** window (`Win + X` → **Terminal** or search **PowerShell** — **do not** choose *Run as Administrator*, which opens in `C:\Windows\System32` and blocks folder creation).
 
-```bash
+Clone into a dedicated folder under your user directory (this avoids both `System32` permission errors and OneDrive/Defender locks on `Desktop` or `Documents`):
+
+**Windows (PowerShell):**
+```powershell
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\Projects" | Out-Null
+Set-Location "$env:USERPROFILE\Projects"
 git clone https://github.com/mukundprasanna9-maker/chinni-app.git
-cd chinni-app
+Set-Location "$env:USERPROFILE\Projects\chinni-app"
+```
+
+**Mac / Linux (Terminal):**
+```bash
+mkdir -p ~/Projects && cd ~/Projects
+git clone https://github.com/mukundprasanna9-maker/chinni-app.git
+cd ~/Projects/chinni-app
 ```
 
 ---
 
 ## 2 — Create the virtual environment and install packages
 
-Run these three commands one after another. Each one must finish before you run the next.
+Run these commands inside the `chinni-app` folder. Using the `.venv` Python executable directly works on every fresh Windows laptop without running into PowerShell script execution-policy blocks.
 
 **Windows (PowerShell):**
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-**Mac / Linux:**
+**Mac / Linux (Terminal):**
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/python -m pip install -r requirements.txt
 ```
 
-Wait for packages to finish downloading and installing before moving on.
+Wait until all packages finish installing before continuing.
 
-> **If you see `Activate.ps1 cannot be loaded` on Windows**, run this once first, then retry:
-> ```powershell
-> Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
-> ```
+> **If `python` is not recognized on Windows:** try `py -m venv .venv` instead, or reinstall Python with **"Add python.exe to PATH"** checked.
 
 ---
 
-## 3 — Configure the database (Optional if using offline mode)
+## 3 — Database setup (Optional for offline mode)
 
-- **If you are testing quickly without MySQL:** you can skip straight to **Step 4** — the app creates and uses `chinni_offline.db` automatically.
-- **If you want to use MySQL Server:** copy `.env.example` to `.env` and set `DB_PASSWORD` to your MySQL root password:
+- **Testing quickly without MySQL:** Skip straight to **Step 4**. Cadence will automatically create and use `chinni_offline.db`.
+- **Using MySQL Server (optional):** Copy `.env.example` to `.env` and fill in your MySQL root password:
 
-**Windows:**
+**Windows (PowerShell):**
 ```powershell
-copy .env.example .env
+Copy-Item .env.example .env
 notepad .env
 ```
 
-**Mac / Linux:**
+**Mac / Linux (Terminal):**
 ```bash
 cp .env.example .env
 nano .env
@@ -85,16 +95,16 @@ DB_NAME=chinni_db
 
 ---
 
-## 4 — Load the demo accounts & syllabus data
+## 4 — Initialize the database and load demo accounts
 
-This creates all database tables, sets up the **Admin** account, and seeds 3 demo student accounts with JEE Main 2026 & CBSE 12th Board tracks, chapter-wise syllabi, sample tests (`T1`–`T3`), study plans, and focus sessions:
+This creates all tables, ensures the **Admin** account exists, and seeds 3 demo student accounts with JEE Main 2026 & CBSE 12th Board tracks, chapter-wise syllabi, sample tests (`T1`–`T3`), study plans, and focus sessions:
 
 **Windows (PowerShell):**
 ```powershell
 .\.venv\Scripts\python.exe -m backend.seed.seed_data
 ```
 
-**Mac / Linux:**
+**Mac / Linux (Terminal):**
 ```bash
 .venv/bin/python -m backend.seed.seed_data
 ```
@@ -108,52 +118,51 @@ This creates all database tables, sets up the **Admin** account, and seeds 3 dem
 | Student | `Sarvesh Umesh Kulkarni` | `2studyproject` |
 | Student | `Arya Nandan Srinivas` | `3studyproject` |
 
-*(You can also skip seeding or create brand-new accounts anytime via **Sign Up** in the app — e.g. selecting **CBSE 8th Grade**, **JEE Main 2026**, or **CBSE 12th Board**.)*
+*(You can also create brand-new accounts anytime via **Sign Up** in the app and pick a starting track such as **CBSE 8th Grade**, **JEE Main 2026**, or **CBSE 12th Board**.)*
 
 ---
 
-## 5 — Run the backend server
+## 5 — Start the backend server
 
-The backend must be running before you open the UI. Keep this terminal open.
+Keep this terminal open while using the app.
 
 **Windows (PowerShell):**
 ```powershell
 .\.venv\Scripts\python.exe run_backend.py
 ```
 
-**Mac / Linux:**
+**Mac / Linux (Terminal):**
 ```bash
 .venv/bin/python run_backend.py
 ```
 
-You will see:
-
+Wait until you see:
 ```text
-Starting Cadence API Server (chinni-app)
-[Server] Listening at http://127.0.0.1:8000
-[Docs] Swagger UI available at http://127.0.0.1:8000/docs
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 ```
 
 ---
 
 ## 6 — Launch the desktop UI
 
-Open a **second** terminal in the `chinni-app` folder and run:
+Open a **second** terminal window, navigate into `chinni-app`, and launch the app:
 
 **Windows (PowerShell):**
 ```powershell
+Set-Location "$env:USERPROFILE\Projects\chinni-app"
 .\.venv\Scripts\python.exe run_app.py
 ```
 
-**Mac / Linux:**
+**Mac / Linux (Terminal):**
 ```bash
+cd ~/Projects/chinni-app
 .venv/bin/python run_app.py
 ```
 
-1. **Log In or Sign Up** on the Cadence login screen (`admin / admin123`, one of the 3 seeded accounts, or **Sign Up** to create a new account and pick a starting track such as **CBSE 8th Grade**).
+1. **Log In or Sign Up** on the Cadence login screen (`admin / admin123`, any seeded student account, or click **Don't have an account? Sign Up** to create a new account and choose a starting track like **CBSE 8th Grade**).
 2. The bottom-left corner shows a green **`● API Connected (8000)`** badge when connected to the backend.
 3. Explore the 5 screens in the sidebar:
-   - **Dashboard**: Scorecard, target deficit, momentum, and subject averages.
+   - **Dashboard**: Track scorecard, target deficit, momentum, and subject averages.
    - **Log a Test**: Multi-subject mode (e.g. JEE Main) or Single-Subject flexible-marks mode (e.g. CBSE 8th Grade) with chapter checkboxes.
    - **Trends & Ranking**: Score progression and a flexible **Suggested Study Mix** with one-click **`▶ Start Sprint`** buttons.
    - **Focus Timer**: Pomodoro sprints with **`✨ Suggested Next Up`** that dynamically rebalance future suggestions as you log sessions.
@@ -161,23 +170,27 @@ Open a **second** terminal in the `chinni-app` folder and run:
 
 ---
 
-## 7 — Run the tests
+## 7 — Run the test suite
 
-With the backend stopped (or running), run the full test suite from the project folder:
+From the `chinni-app` folder:
 
 **Windows (PowerShell):**
 ```powershell
 .\.venv\Scripts\python.exe -m pytest tests -v
 ```
 
-**Mac / Linux:**
+**Mac / Linux (Terminal):**
 ```bash
 .venv/bin/python -m pytest tests -v
 ```
 
 Expected output: `21 passed`.
 
-> **Note:** Running `pytest` writes sample test records into the active database (`chinni_offline.db` or MySQL). If you run tests and want a clean demo database afterward, delete `chinni_offline.db` and re-run Step 4 (`seed_data`).
+> **Note:** Running `pytest` writes test records into the active database (`chinni_offline.db` or MySQL). To reset back to clean demo data afterward on offline storage:
+> ```powershell
+> Remove-Item chinni_offline.db -ErrorAction SilentlyContinue
+> .\.venv\Scripts\python.exe -m backend.seed.seed_data
+> ```
 
 ---
 
@@ -185,13 +198,13 @@ Expected output: `21 passed`.
 
 | Problem | Fix |
 |---|---|
-| `python` not found | Use `python3` (Mac/Linux) or `py` (Windows), or reinstall Python and tick **"Add to PATH"** |
-| `pip install` fails with no network | Make sure you are connected to the internet during install |
-| `Activate.ps1` blocked on Windows | Run `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned` once |
-| `No module named tkinter` (Linux) | Install Tk support: `sudo apt install python3-tk` |
-| MySQL connection refused | Ignore if testing locally — Cadence automatically falls back to `chinni_offline.db` |
-| `ModuleNotFoundError` | Make sure you are inside the `chinni-app` folder and using `.venv` |
-| Login shows "Cannot reach backend" | Make sure `run_backend.py` is running in a separate terminal first |
+| `could not create work tree dir ... Permission denied` | You are in a protected folder (like `C:\Windows\System32` from an Admin PowerShell, or a OneDrive-locked folder). Follow Step 1 to clone into `$env:USERPROFILE\Projects` instead. |
+| `python` not found or opens Microsoft Store | Install Python 3.12 or 3.13 from python.org and tick **"Add python.exe to PATH"**, or try `py -m venv .venv` on Windows. |
+| `Activate.ps1 cannot be loaded` | Not needed if you run `.\.venv\Scripts\python.exe ...` directly as shown in Steps 2–7. (If you still want activation, run `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned` once.) |
+| `pip install` fails building wheels | Make sure you are using Python 3.10–3.13 (not 3.14+) and have an active internet connection. |
+| `No module named tkinter` (Linux) | Install Tk support: `sudo apt install python3-tk`. |
+| MySQL connection refused | Ignore if testing locally — Cadence automatically falls back to `chinni_offline.db`. |
+| Login shows "Cannot reach backend" | Make sure Step 5 (`run_backend.py`) is running in another terminal first. |
 
 ---
 
