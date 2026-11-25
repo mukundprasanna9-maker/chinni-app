@@ -1,28 +1,28 @@
 # Cadence — chinni-app
 
-A study rhythm and score tracker for JEE / CBSE students. Built with Python, FastAPI, CustomTkinter, and MySQL.
+A study rhythm and score tracker for **JEE** and **CBSE** students (including **JEE Main 2026**, **CBSE 8th Grade**, **CBSE 12th Board**, and custom tracks). Built with Python, FastAPI, CustomTkinter, and MySQL (with automatic local SQLite fallback).
 
-Track your Maths, Physics, and Chemistry mock test scores across G1/G2/G3 topic groups, see where you are losing marks, and allocate study hours using a data-driven spend-ranking algorithm.
+Log mock tests and unit tests by ticking the exact **syllabus chapters** included in each exam, track your scores across flexible exam patterns, get a schedule-friendly **Suggested Study Mix** linked directly to an interactive **Focus Timer**, and manage accounts and tracks from **Settings**.
 
 ---
 
 ## What you need before you start
 
-| Requirement | Minimum version | Download link |
-|---|---|---|
-| Python | 3.10 | https://www.python.org/downloads/ |
-| MySQL Server | 8.0 | https://dev.mysql.com/downloads/mysql/ |
-| Git | any | https://git-scm.com/downloads |
+| Requirement | Minimum version | Required? | Download link |
+|---|---|---|---|
+| Python | 3.10 | Yes | https://www.python.org/downloads/ |
+| Git | any | Yes | https://git-scm.com/downloads |
+| MySQL Server | 8.0 | Optional | https://dev.mysql.com/downloads/mysql/ |
 
-> **During Python install:** tick **"Add Python to PATH"** before clicking Install Now.
+> **During Python install on Windows:** tick **"Add Python to PATH"** before clicking Install Now.
 >
-> **During MySQL install:** when asked to set a root password, write it down — you will need it in Step 3.
+> **No MySQL installed?** That is completely fine — if the app cannot reach MySQL, it automatically uses a local SQLite file (`chinni_offline.db`), so you can run everything out of the box on a fresh laptop without installing MySQL.
 
 ---
 
 ## 1 — Clone the repository
 
-Open a terminal (PowerShell on Windows, Terminal on Mac/Linux) and run:
+Open a terminal (**PowerShell** on Windows, **Terminal** on Mac/Linux) and run:
 
 ```bash
 git clone https://github.com/mukundprasanna9-maker/chinni-app.git
@@ -49,7 +49,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-You will see packages downloading and installing. Wait for the prompt to come back before moving on.
+Wait for packages to finish downloading and installing before moving on.
 
 > **If you see `Activate.ps1 cannot be loaded` on Windows**, run this once first, then retry:
 > ```powershell
@@ -58,9 +58,10 @@ You will see packages downloading and installing. Wait for the prompt to come ba
 
 ---
 
-## 3 — Configure the database
+## 3 — Configure the database (Optional if using offline mode)
 
-Copy the example config file and open it in Notepad (or any editor):
+- **If you are testing quickly without MySQL:** you can skip straight to **Step 4** — the app creates and uses `chinni_offline.db` automatically.
+- **If you want to use MySQL Server:** copy `.env.example` to `.env` and set `DB_PASSWORD` to your MySQL root password:
 
 **Windows:**
 ```powershell
@@ -74,52 +75,40 @@ cp .env.example .env
 nano .env
 ```
 
-The file looks like this:
-
-```
+```ini
 DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_USER=root
-DB_PASSWORD=
+DB_PASSWORD=your_mysql_password
 DB_NAME=chinni_db
 ```
 
-**Only change `DB_PASSWORD`** — replace the empty value with the MySQL root password you set during installation, then save and close.
-
-Example if your password is `abc123`:
-```
-DB_PASSWORD=abc123
-```
-
-> **No MySQL installed?** That is fine. If the app cannot reach MySQL, it automatically falls back to a local file (`chinni_offline.db`) so you can still run and test everything. You can connect MySQL later and it will switch over automatically.
-
 ---
 
-## 4 — Load the demo data
+## 4 — Load the demo accounts & syllabus data
 
-This creates all the database tables and loads sample student profiles, JEE and CBSE 12 tracks, and three mock test results (T1, T2, T3).
+This creates all database tables, sets up the **Admin** account, and seeds 3 demo student accounts with JEE Main 2026 & CBSE 12th Board tracks, chapter-wise syllabi, sample tests (`T1`–`T3`), study plans, and focus sessions:
 
-**Windows:**
+**Windows (PowerShell):**
 ```powershell
-.\.venv\Scripts\python.exe -m backend.seed.seed_data Mukund
+.\.venv\Scripts\python.exe -m backend.seed.seed_data
 ```
 
 **Mac / Linux:**
 ```bash
-.venv/bin/python -m backend.seed.seed_data Mukund
+.venv/bin/python -m backend.seed.seed_data
 ```
 
-Replace `Mukund` with any name. You will see output like:
+### Seeded Accounts
 
-```
-Initializing database schema...
-[Database] MySQL not reachable — using offline storage for now.
-Created student 'Mukund' with ID 1
-Created track 'JEE Main 2026' (ID: 1)
-Created track 'CBSE 12th Board' (ID: 2)
-Created sample test runs T1, T2, T3 with subject and group scores.
-Database seeding completed successfully!
-```
+| Role | Username | Password |
+|---|---|---|
+| Admin (sees all students) | `admin` | `admin123` |
+| Student | `Mukund Prasanna` | `1studyproject` |
+| Student | `Sarvesh Umesh Kulkarni` | `2studyproject` |
+| Student | `Arya Nandan Srinivas` | `3studyproject` |
+
+*(You can also skip seeding or create brand-new accounts anytime via **Sign Up** in the app — e.g. selecting **CBSE 8th Grade**, **JEE Main 2026**, or **CBSE 12th Board**.)*
 
 ---
 
@@ -127,7 +116,7 @@ Database seeding completed successfully!
 
 The backend must be running before you open the UI. Keep this terminal open.
 
-**Windows:**
+**Windows (PowerShell):**
 ```powershell
 .\.venv\Scripts\python.exe run_backend.py
 ```
@@ -139,41 +128,44 @@ The backend must be running before you open the UI. Keep this terminal open.
 
 You will see:
 
-```
+```text
 Starting Cadence API Server (chinni-app)
 [Server] Listening at http://127.0.0.1:8000
 [Docs] Swagger UI available at http://127.0.0.1:8000/docs
 ```
 
-You can visit `http://127.0.0.1:8000/docs` in your browser to explore all API endpoints interactively.
-
 ---
 
-## 6 — Launch the UI
+## 6 — Launch the desktop UI
 
-Open a **second** terminal in the same folder. Activate the virtual environment again, then run:
+Open a **second** terminal in the `chinni-app` folder and run:
 
-**Windows:**
+**Windows (PowerShell):**
 ```powershell
-.\.venv\Scripts\Activate.ps1
 .\.venv\Scripts\python.exe run_app.py
 ```
 
 **Mac / Linux:**
 ```bash
-source .venv/bin/activate
 .venv/bin/python run_app.py
 ```
 
-The desktop app will open. The bottom-left corner shows a green **● API Connected** badge when the backend is running correctly.
+1. **Log In or Sign Up** on the Cadence login screen (`admin / admin123`, one of the 3 seeded accounts, or **Sign Up** to create a new account and pick a starting track such as **CBSE 8th Grade**).
+2. The bottom-left corner shows a green **`● API Connected (8000)`** badge when connected to the backend.
+3. Explore the 5 screens in the sidebar:
+   - **Dashboard**: Scorecard, target deficit, momentum, and subject averages.
+   - **Log a Test**: Multi-subject mode (e.g. JEE Main) or Single-Subject flexible-marks mode (e.g. CBSE 8th Grade) with chapter checkboxes.
+   - **Trends & Ranking**: Score progression and a flexible **Suggested Study Mix** with one-click **`▶ Start Sprint`** buttons.
+   - **Focus Timer**: Pomodoro sprints with **`✨ Suggested Next Up`** that dynamically rebalance future suggestions as you log sessions.
+   - **Settings**: Change username/password (requires current password), add new tracks, edit target scores, or delete tracks with confirmation.
 
 ---
 
 ## 7 — Run the tests
 
-With the virtual environment active, run the full test suite from the project folder:
+With the backend stopped (or running), run the full test suite from the project folder:
 
-**Windows:**
+**Windows (PowerShell):**
 ```powershell
 .\.venv\Scripts\python.exe -m pytest tests -v
 ```
@@ -183,7 +175,9 @@ With the virtual environment active, run the full test suite from the project fo
 .venv/bin/python -m pytest tests -v
 ```
 
-Expected output: `16 passed`.
+Expected output: `21 passed`.
+
+> **Note:** Running `pytest` writes sample test records into the active database (`chinni_offline.db` or MySQL). If you run tests and want a clean demo database afterward, delete `chinni_offline.db` and re-run Step 4 (`seed_data`).
 
 ---
 
@@ -191,37 +185,40 @@ Expected output: `16 passed`.
 
 | Problem | Fix |
 |---|---|
-| `python` not found | Use `python3` instead, or reinstall Python and tick "Add to PATH" |
+| `python` not found | Use `python3` (Mac/Linux) or `py` (Windows), or reinstall Python and tick **"Add to PATH"** |
 | `pip install` fails with no network | Make sure you are connected to the internet during install |
 | `Activate.ps1` blocked on Windows | Run `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned` once |
-| MySQL connection refused | Check that the MySQL service is running, or just ignore it — the app uses a local fallback |
-| `Module not found` error | Make sure the virtual environment is activated (you should see `(.venv)` in your prompt) |
-| UI opens but shows no data | Make sure the backend (`run_backend.py`) is running in a separate terminal first |
+| `No module named tkinter` (Linux) | Install Tk support: `sudo apt install python3-tk` |
+| MySQL connection refused | Ignore if testing locally — Cadence automatically falls back to `chinni_offline.db` |
+| `ModuleNotFoundError` | Make sure you are inside the `chinni-app` folder and using `.venv` |
+| Login shows "Cannot reach backend" | Make sure `run_backend.py` is running in a separate terminal first |
 
 ---
 
 ## Project structure
 
-```
+```text
 chinni-app/
-├── run_backend.py          ← start the API server
-├── run_app.py              ← start the desktop UI
+├── run_backend.py          ← start the FastAPI server
+├── run_app.py              ← start the CustomTkinter desktop UI
+├── login_page.py           ← Login / Sign Up gate with starting track picker
 ├── requirements.txt        ← all Python packages
-├── .env.example            ← copy this to .env and fill in your DB password
+├── .env.example            ← optional MySQL config template
 │
 ├── backend/
-│   ├── api/                ← HTTP routes (FastAPI)
+│   ├── api/                ← HTTP routes (FastAPI: auth, students, tracks, tests, plans, analytics)
 │   ├── schemas/            ← request & response shapes (Pydantic)
-│   ├── services/           ← scoring maths & spend ranking
-│   ├── repositories/       ← all SQL queries (mysql-connector-python)
-│   └── seed/               ← demo data loader
+│   ├── services/           ← scoring maths, flexible study mix, adherence
+│   ├── repositories/       ← SQL queries & SQLite fallback
+│   └── seed/               ← demo accounts & JEE / CBSE 8th / CBSE 12th syllabi
 │
 ├── ui/
 │   ├── api_client.py       ← only file that makes HTTP calls
 │   ├── home_screen.py      ← dashboard with student & track selector
-│   ├── tests_screen.py     ← log a test (Maths/Physics/Chem + G1/G2/G3)
-│   ├── trends_screen.py    ← score trends & study hour recommendations
-│   └── focus_timer.py      ← Pomodoro timer & adherence tracker
+│   ├── tests_screen.py     ← log tests with syllabus chapter checkboxes & flexible marks
+│   ├── trends_screen.py    ← score progression & flexible study mix -> timer launch
+│   ├── focus_timer.py      ← Pomodoro timer linked with Suggested Next Up
+│   └── settings_screen.py  ← account security, track CRUD, target score editing
 │
 └── tests/
     ├── test_api.py
@@ -234,8 +231,8 @@ chinni-app/
 
 ## Architecture in one sentence per layer
 
-```
-UI (CustomTkinter)  →  API Client (HTTP only)  →  FastAPI Routes  →  Service Logic  →  Repository SQL  →  MySQL
+```text
+UI (CustomTkinter)  →  API Client (HTTP only)  →  FastAPI Routes  →  Service Logic  →  Repository SQL  →  MySQL / SQLite
 ```
 
-Each layer has exactly one job and calls only the layer directly beneath it. The UI never writes SQL. The routes never do maths. The services never know about HTTP.
+Each layer has one job and calls only the layer directly beneath it. The UI never writes SQL. The routes never do maths. The services never know about HTTP.
