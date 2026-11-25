@@ -232,10 +232,12 @@ class TrendsScreen(ctk.CTkFrame):
                         subject_code_order.append(code)
 
             for code in subject_code_order:
-                ctk.CTkLabel(th, text=code, width=80, font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
+                col_w = 65 if len(subject_code_order) > 3 else 80
+                ctk.CTkLabel(th, text=code, width=col_w, font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
             ctk.CTkLabel(th, text="Notes", font=ctk.CTkFont(size=12, weight="bold")).pack(side="left", padx=10)
 
-            prev_score = None
+            is_single = curr_track.get("exam_mode") == "SINGLE_SUBJECT"
+            prev_metric = None
             for t in tests:
                 t_row = ctk.CTkFrame(self.trend_table, fg_color=("#CBD5E1", "#0F172A"), corner_radius=6)
                 t_row.pack(fill="x", padx=15, pady=3)
@@ -247,16 +249,25 @@ class TrendsScreen(ctk.CTkFrame):
                 ctk.CTkLabel(r_inner, text=t["test_date"], width=110).pack(side="left")
 
                 tot = t["total_score"]
+                max_s = t["max_score"] or 100.0
+                pct = (tot / max_s) * 100.0 if max_s > 0 else 0.0
+                metric = pct if is_single else tot
                 delta_str = ""
-                if prev_score is not None:
-                    d = tot - prev_score
-                    delta_str = f" (+{d:.0f})" if d >= 0 else f" ({d:.0f})"
-                prev_score = tot
+                if prev_metric is not None:
+                    d = metric - prev_metric
+                    unit = "%" if is_single else ""
+                    delta_str = f" (+{d:.0f}{unit})" if d >= 0 else f" ({d:.0f}{unit})"
+                prev_metric = metric
 
+                score_txt = (
+                    f"{tot:.0f}/{max_s:.0f} ({pct:.0f}%){delta_str}"
+                    if is_single
+                    else f"{tot:.0f} / {max_s:.0f}{delta_str}"
+                )
                 ctk.CTkLabel(
                     r_inner,
-                    text=f"{tot:.0f} / {t['max_score']:.0f}{delta_str}",
-                    width=120,
+                    text=score_txt,
+                    width=135 if is_single else 120,
                     font=ctk.CTkFont(size=12, weight="bold"),
                     text_color=("#0284C7", "#38BDF8"),
                 ).pack(side="left")
@@ -265,10 +276,11 @@ class TrendsScreen(ctk.CTkFrame):
                     s.get("subject_code") or s.get("subject_name", "?"): s["score"]
                     for s in t.get("subject_scores", [])
                 }
+                col_w = 65 if len(subject_code_order) > 3 else 80
                 for code in subject_code_order:
                     score_val = sub_scores.get(code, "-")
                     display = f"{score_val:.0f}" if isinstance(score_val, (int, float)) else str(score_val)
-                    ctk.CTkLabel(r_inner, text=display, width=80).pack(side="left")
+                    ctk.CTkLabel(r_inner, text=display, width=col_w).pack(side="left")
                 ctk.CTkLabel(r_inner, text=t.get("notes", "") or "-", text_color="#94A3B8").pack(side="left", padx=10)
 
             ctk.CTkFrame(self.trend_table, height=10, fg_color="transparent").pack()

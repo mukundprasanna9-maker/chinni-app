@@ -133,7 +133,7 @@ class HomeScreen(ctk.CTkFrame):
         # 2. Subject Breakdown Section
         subj_header = ctk.CTkLabel(
             self.content_scroll,
-            text="Subject Breakdown (Maths, Physics, Chemistry)",
+            text="Subject Breakdown",
             font=ctk.CTkFont(size=16, weight="bold"),
         )
         subj_header.pack(anchor="w", pady=(15, 8))
@@ -208,7 +208,16 @@ class HomeScreen(ctk.CTkFrame):
             # Load tracks for this student
             tracks = api_client.get_student_tracks(curr_s["id"])
             if not tracks:
+                self.app_state["tracks"] = []
+                self.app_state["current_track"] = None
                 self.track_menu.configure(values=["No Tracks"])
+                self.track_var.set("No Tracks")
+                self.track_title_label.configure(text="No Tracks Yet")
+                self.score_display_label.configure(text="Open Settings to add a track for this student.")
+                self.gap_badge.configure(text="No Track")
+                self.trend_badge.configure(text="0 Momentum")
+                for w in self.subjects_container.winfo_children():
+                    w.destroy()
                 return
 
             self.app_state["tracks"] = tracks
@@ -234,14 +243,29 @@ class HomeScreen(ctk.CTkFrame):
 
             self.track_title_label.configure(text=f"{track.get('name', 'Academic Track')}")
             latest = scorecard.get("latest_score", 0.0)
-            max_s = track.get("max_score", 300)
-            target = track.get("target_score", 235)
+            is_single = scorecard.get("single_subject_mode", False)
 
-            self.score_display_label.configure(
-                text=f"Latest Score: {latest:.1f} / {max_s}   |   Target Score: {target}"
-            )
+            if is_single:
+                latest_max = scorecard.get("latest_max_score", 100.0)
+                latest_pct = scorecard.get("latest_percentage", 0.0)
+                target_pct = scorecard.get("target_percentage", 85.0)
+                if scorecard.get("test_count", 0) == 0:
+                    self.score_display_label.configure(
+                        text=f"No exams logged yet   |   Target: {target_pct:.0f}%"
+                    )
+                else:
+                    self.score_display_label.configure(
+                        text=f"Latest Exam: {latest:.1f} / {latest_max:.0f} ({latest_pct:.1f}%)   |   Target: {target_pct:.0f}%"
+                    )
+            else:
+                max_s = track.get("max_score", 300)
+                target = track.get("target_score", 235)
+                self.score_display_label.configure(
+                    text=f"Latest Score: {latest:.1f} / {max_s}   |   Target Score: {target}"
+                )
 
             gap = scorecard.get("gap_to_target", 0.0)
+            unit_lbl = "%" if is_single else " Marks"
             if gap <= 0:
                 self.gap_badge.configure(
                     text="🎯 Target Achieved!",
@@ -250,14 +274,15 @@ class HomeScreen(ctk.CTkFrame):
                 )
             else:
                 self.gap_badge.configure(
-                    text=f"Deficit: {gap:.1f} Marks Needed",
+                    text=f"Deficit: {gap:.1f}{unit_lbl} Needed",
                     fg_color=("#FEF3C7", "#78350F"),
                     text_color=("#B45309", "#FDE68A"),
                 )
 
             delta = scorecard.get("trend_delta", 0.0)
             prefix = "+" if delta >= 0 else ""
-            self.trend_badge.configure(text=f"{prefix}{delta:.1f} Momentum (Test Trend)")
+            delta_unit = "%" if is_single else ""
+            self.trend_badge.configure(text=f"{prefix}{delta:.1f}{delta_unit} Momentum (Test Trend)")
 
             # Render Subject Cards
             for w in self.subjects_container.winfo_children():
@@ -265,24 +290,29 @@ class HomeScreen(ctk.CTkFrame):
 
             sub_avgs = scorecard.get("subject_averages", {})
             if not sub_avgs:
+                self.subjects_container.grid_columnconfigure(0, weight=1)
                 no_data = ctk.CTkLabel(
                     self.subjects_container,
                     text="No tests logged yet for this track. Click 'Log a Test' below to begin!",
                     text_color="#94A3B8",
                 )
-                no_data.pack(pady=10)
+                no_data.grid(row=0, column=0, pady=10)
                 return
 
-            # Arrange cards horizontally in columns
-            col_idx = 0
-            for code, s_data in sub_avgs.items():
+            # Arrange subject cards in a responsive grid (up to 3 columns per row)
+            for c in range(3):
+                self.subjects_container.grid_columnconfigure(c, weight=0, uniform="")
+            cols = min(3, max(1, len(sub_avgs)))
+            for c in range(cols):
+                self.subjects_container.grid_columnconfigure(c, weight=1, uniform="subj_col")
+
+            for idx, (code, s_data) in enumerate(sub_avgs.items()):
                 card = ctk.CTkFrame(
                     self.subjects_container,
                     fg_color=("#E2E8F0", "#1E293B"),
                     corner_radius=10,
-                    width=200,
                 )
-                card.pack(side="left", fill="both", expand=True, padx=6, pady=5)
+                card.grid(row=idx // 3, column=idx % 3, sticky="nsew", padx=6, pady=6)
 
                 ctk.CTkLabel(
                     card,
@@ -297,19 +327,18 @@ class HomeScreen(ctk.CTkFrame):
 
                 ctk.CTkLabel(
                     card,
-                    text=f"Avg: {avg_val:.1f} / {max_val:.0f}",
+                    text=f"Avg: {avg_val:.1f} / {max_val:.0f} ({pct_val:.1f}%)" if is_single else f"Avg: {avg_val:.1f} / {max_val:.0f}",
                     font=ctk.CTkFont(size=16, weight="bold"),
                     text_color=("#2563EB", "#38BDF8"),
                 ).pack(anchor="w", padx=15, pady=2)
 
+                test_cnt = s_data.get("test_count", 0)
                 ctk.CTkLabel(
                     card,
-                    text=f"Accuracy: {pct_val:.1f}% across {s_data.get('test_count', 0)} tests",
+                    text=f"Accuracy: {pct_val:.1f}% across {test_cnt} {'exam' if test_cnt == 1 else 'tests'}",
                     font=ctk.CTkFont(size=11),
                     text_color=("#64748B", "#94A3B8"),
                 ).pack(anchor="w", padx=15, pady=(0, 12))
-
-                col_idx += 1
 
         except Exception as e:
             print(f"[Scorecard Render Error] {e}")

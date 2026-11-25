@@ -24,6 +24,67 @@ from backend.repositories.test_repo import create_test
 from backend.repositories.plan_repo import create_study_plan, create_focus_session
 
 
+CBSE_8_SYLLABUS = {
+    "MATH-8": [
+        ("M8-01", "Rational Numbers", "Properties of rational numbers, Closure, Commutativity, Associativity", "Number System"),
+        ("M8-02", "Linear Equations in One Variable", "Solving linear equations, Variables on both sides, Word problems", "Algebra"),
+        ("M8-03", "Understanding Quadrilaterals", "Polygons, Angle sum property, Parallelograms, Rhombus, Rectangle, Square", "Geometry"),
+        ("M8-04", "Data Handling", "Bar graphs, Pie charts, Grouping data, Chance and probability", "Statistics"),
+        ("M8-05", "Squares and Square Roots", "Properties of square numbers, Pythagorean triplets, Long division method", "Number System"),
+        ("M8-06", "Cubes and Cube Roots", "Hardy-Ramanujan numbers, Prime factorisation for cube roots", "Number System"),
+        ("M8-07", "Comparing Quantities", "Ratios, Percentages, Discount, Profit & Loss, Compound Interest", "Arithmetic"),
+        ("M8-08", "Algebraic Expressions & Identities", "Monomials, Binomials, Polynomial multiplication, Standard identities", "Algebra"),
+        ("M8-09", "Mensuration", "Area of trapezium & polygons, Surface area & volume of cube, cuboid, cylinder", "Mensuration"),
+        ("M8-10", "Exponents and Powers", "Negative exponents, Laws of exponents, Standard form of numbers", "Algebra"),
+        ("M8-11", "Direct and Inverse Proportions", "Direct variation, Inverse variation, Time-work problems", "Arithmetic"),
+        ("M8-12", "Factorisation", "Common factors, Regrouping, Factorisation using identities, Division of polynomials", "Algebra"),
+        ("M8-13", "Introduction to Graphs", "Line graphs, Coordinates, Plotting points, Distance-time graphs", "Graphs"),
+    ],
+    "SCI-8": [
+        ("S8-01", "Crop Production and Management", "Kharif & Rabi crops, Soil preparation, Sowing, Irrigation, Harvesting", "Biology"),
+        ("S8-02", "Microorganisms: Friend and Foe", "Bacteria, Fungi, Viruses, Nitrogen fixation, Food preservation", "Biology"),
+        ("S8-03", "Coal and Petroleum", "Exhaustible resources, Coal refining, Petroleum fractions, Natural gas", "Chemistry"),
+        ("S8-04", "Combustion and Flame", "Ignition temperature, Fire control, Flame zones, Calorific value", "Chemistry"),
+        ("S8-05", "Conservation of Plants & Animals", "Deforestation, Biosphere reserves, Endemic & endangered species", "Biology"),
+        ("S8-06", "Reproduction in Animals", "Sexual & asexual reproduction, Fertilisation, Embryo development, Cloning", "Biology"),
+        ("S8-07", "Reaching the Age of Adolescence", "Puberty changes, Endocrine glands, Hormones, Reproductive health", "Biology"),
+        ("S8-08", "Force and Pressure", "Contact & non-contact forces, Net force, Liquid & atmospheric pressure", "Physics"),
+        ("S8-09", "Friction", "Factors affecting friction, Static/Sliding/Rolling friction, Reducing friction", "Physics"),
+        ("S8-10", "Sound", "Vibrations, Human ear, Amplitude, Time period, Frequency, Audible range", "Physics"),
+        ("S8-11", "Chemical Effects of Electric Current", "Conductors, LED testing, Electrolysis, Electroplating applications", "Chemistry & Physics"),
+        ("S8-12", "Some Natural Phenomena", "Static charges, Electroscope, Lightning safety, Earthquakes & seismograph", "Physics"),
+        ("S8-13", "Light", "Laws of reflection, Multiple images, Kaleidoscope, Human eye, Braille", "Physics"),
+    ],
+    "SST-8": [
+        ("SS8-01", "How, When and Where & From Trade to Territory", "Colonial records, East India Company expansion, Battle of Plassey & Buxar", "History"),
+        ("SS8-02", "Ruling the Countryside & Tribals", "Permanent Settlement, Indigo cultivation, Birsa Munda movement", "History"),
+        ("SS8-03", "When People Rebel: 1857 and After", "Causes of 1857 revolt, Leaders, Aftermath & British Crown rule", "History"),
+        ("SS8-04", "Women, Caste and Reform", "Social reformers, Sati abolition, Caste reform movements", "History"),
+        ("SS8-05", "Making of the National Movement (1870-1947)", "INC formation, Non-Cooperation, Civil Disobedience, Quit India, Independence", "History"),
+        ("SS8-06", "Resources, Land, Soil & Water", "Resource conservation, Soil types, Water conservation, Natural vegetation", "Geography"),
+        ("SS8-07", "Agriculture & Industries", "Farming types, Major crops, Industrial locations, IT & Iron-Steel hubs", "Geography"),
+        ("SS8-08", "Human Resources", "Population distribution, Density, Factors affecting population change", "Geography"),
+        ("SS8-09", "The Indian Constitution & Secularism", "Key features of Constitution, Fundamental Rights, Secularism", "Civics"),
+        ("SS8-10", "Parliament, Judiciary & Social Justice", "Lok Sabha & Rajya Sabha, Supreme Court, Marginalisation, Public facilities", "Civics"),
+    ],
+    "ENG-8": [
+        ("E8-01", "Honeydew Prose (Units 1-4)", "The Best Christmas Present, The Tsunami, Glimpses of the Past, Bepin Choudhury", "Literature"),
+        ("E8-02", "Honeydew Prose (Units 5-8)", "The Summit Within, This is Jody's Fawn, A Visit to Cambridge, Short Monsoon Diary", "Literature"),
+        ("E8-03", "Honeydew Poetry", "The Ant and the Cricket, Geography Lesson, The Last Bargain, School Boy", "Poetry"),
+        ("E8-04", "It So Happened (Supplementary)", "How the Camel Got His Hump, Children at Work, Selfish Giant, Princess September", "Supplementary"),
+        ("E8-05", "Reading & Grammar", "Unseen comprehension, Tenses, Active/Passive Voice, Reported Speech, Modals", "Grammar"),
+        ("E8-06", "Writing Skills", "Formal & Informal letters, Notice writing, Diary entry, Article & Paragraph", "Writing"),
+    ],
+    "HIN-8": [
+        ("H8-01", "Vasant Bhag 3 (Gadya)", "Lakh Ki Chudiyan, Bus Ki Yatra, Diwanon Ki Hasti, Kya Nirash Hua Jaye", "Prose"),
+        ("H8-02", "Vasant Bhag 3 (Kavita)", "Dhvani, Bhagwan Ke Dakiye, Yeh Sabse Kathin Samay Nahin, Kabir Ki Sakhiyan", "Poetry"),
+        ("H8-03", "Bharat Ki Khoj", "Ahmednagar Ka Kila, Talash, Sindhu Ghati Sabhyata, Yugon Ka Daur", "Supplementary"),
+        ("H8-04", "Hindi Vyakaran (Grammar)", "Samas, Sandhi, Upsarg-Pratyay, Muhavare, Vakya Bhed, Alankar", "Grammar"),
+        ("H8-05", "Rachnatmak Lekhan (Writing)", "Anuchhed Lekhan, Patra Lekhan, Samvad Lekhan, Vigyapan", "Writing"),
+    ],
+}
+
+
 JEE_SYLLABUS = {
     "MATH": [
         ("M01", "Sets, Relations & Functions", "Sets, Equivalence relations, Domain, Range, Inverse & Composite functions", "Algebra"),
@@ -152,21 +213,26 @@ DEFAULT_ACCOUNTS = [
 
 
 def _populate_chapters(subject_id: int, subject_code: str) -> list[dict]:
-    """Insert syllabus chapters for a subject from JEE or CBSE definitions."""
-    chapter_defs = JEE_SYLLABUS.get(subject_code) or CBSE_CHAPTERS.get(subject_code, [])
+    """Insert syllabus chapters for a subject from JEE, CBSE 12, or CBSE 8 definitions."""
+    chapter_defs = (
+        JEE_SYLLABUS.get(subject_code)
+        or CBSE_CHAPTERS.get(subject_code)
+        or CBSE_8_SYLLABUS.get(subject_code, [])
+    )
     created = []
     for code, name, topics, unit in chapter_defs:
         created.append(create_chapter(subject_id, code, name, topics=topics, unit=unit))
     return created
 
 
-def create_default_jee_track(student_id: int, target_score: int = 235) -> dict:
+def create_default_jee_track(student_id: int, target_score: int = 235, name: str = "JEE Main 2026") -> dict:
     """Create the default JEE Main 2026 track with Maths, Physics, Chemistry and chapter-wise JEE syllabus."""
     jee_track = create_track(
         student_id=student_id,
-        name="JEE Main 2026",
+        name=name,
         target_score=target_score,
         max_score=300,
+        exam_mode="MULTI_SUBJECT",
     )
 
     math = create_subject(jee_track["id"], "Mathematics", "MATH", max_marks=100, target_marks=80)
@@ -186,6 +252,110 @@ def create_default_jee_track(student_id: int, target_score: int = 235) -> dict:
             "CHEM": chem_chapters,
         },
     }
+
+
+def create_cbse8_track(student_id: int, target_score: int = 85, name: str = "CBSE 8th Grade") -> dict:
+    """Create the CBSE 8th Grade track (single-subject flexible exams, target in % out of 100)."""
+    track = create_track(
+        student_id=student_id,
+        name=name,
+        target_score=target_score,
+        max_score=100,
+        exam_mode="SINGLE_SUBJECT",
+    )
+    subjects_defs = [
+        ("Mathematics", "MATH-8", target_score),
+        ("Science", "SCI-8", target_score),
+        ("Social Science", "SST-8", target_score),
+        ("English", "ENG-8", target_score),
+        ("Hindi", "HIN-8", target_score),
+    ]
+    created_subs = []
+    ch_map = {}
+    for s_name, s_code, s_target in subjects_defs:
+        sub = create_subject(track["id"], s_name, s_code, max_marks=100, target_marks=s_target)
+        created_subs.append(sub)
+        ch_map[s_code] = _populate_chapters(sub["id"], s_code)
+
+    return {"track": track, "subjects": tuple(created_subs), "chapters": ch_map}
+
+
+def create_cbse12_track(student_id: int, target_score: int = 470, name: str = "CBSE 12th Board") -> dict:
+    """Create the CBSE 12th Board track with 5 subjects and NCERT chapters."""
+    track = create_track(
+        student_id=student_id,
+        name=name,
+        target_score=target_score,
+        max_score=500,
+        exam_mode="MULTI_SUBJECT",
+    )
+    created_subs = []
+    ch_map = {}
+    for s_name, s_code, s_target in [
+        ("Mathematics", "MATH-12", 95),
+        ("Physics", "PHY-12", 95),
+        ("Chemistry", "CHEM-12", 95),
+        ("English Core", "ENG-12", 95),
+        ("Computer Science", "CS-12", 90),
+    ]:
+        sub = create_subject(track["id"], s_name, s_code, 100, s_target)
+        created_subs.append(sub)
+        ch_map[s_code] = _populate_chapters(sub["id"], s_code)
+
+    return {"track": track, "subjects": tuple(created_subs), "chapters": ch_map}
+
+
+def create_track_from_template(
+    student_id: int,
+    template: str,
+    name: str | None = None,
+    target_score: int | None = None,
+    max_score: int | None = None,
+    exam_mode: str | None = None,
+    custom_subjects: list[str] | None = None,
+) -> dict:
+    """Create a track from a built-in template (JEE / CBSE 8th / CBSE 12th) or custom subjects."""
+    tpl = (template or "").strip().lower()
+    if "8" in tpl or "cbse 8" in tpl:
+        return create_cbse8_track(
+            student_id,
+            target_score=target_score if target_score is not None else 85,
+            name=name or "CBSE 8th Grade",
+        )
+    if "12" in tpl or "cbse 12" in tpl:
+        return create_cbse12_track(
+            student_id,
+            target_score=target_score if target_score is not None else 470,
+            name=name or "CBSE 12th Board",
+        )
+    if "jee" in tpl:
+        return create_default_jee_track(
+            student_id,
+            target_score=target_score if target_score is not None else 235,
+            name=name or "JEE Main 2026",
+        )
+
+    # Custom track
+    mode = exam_mode if exam_mode in ("SINGLE_SUBJECT", "MULTI_SUBJECT") else "MULTI_SUBJECT"
+    final_max = max_score if max_score is not None else 100
+    final_target = target_score if target_score is not None else int(final_max * 0.8)
+    track = create_track(
+        student_id=student_id,
+        name=name or "Custom Track",
+        target_score=final_target,
+        max_score=final_max,
+        exam_mode=mode,
+    )
+    subs = [s.strip() for s in (custom_subjects or []) if s.strip()]
+    if not subs:
+        subs = ["General"]
+    per_sub_max = 100 if mode == "SINGLE_SUBJECT" else max(1, final_max // len(subs))
+    created_subs = []
+    for idx, s_name in enumerate(subs):
+        code = "".join(ch for ch in s_name.upper() if ch.isalnum())[:8] or f"SUB{idx+1}"
+        sub = create_subject(track["id"], s_name, code, max_marks=per_sub_max, target_marks=int(per_sub_max * 0.8))
+        created_subs.append(sub)
+    return {"track": track, "subjects": tuple(created_subs), "chapters": {}}
 
 
 def _seed_account(account: dict) -> None:
@@ -217,21 +387,7 @@ def _seed_account(account: dict) -> None:
     ch_map = jee_bundle["chapters"]
 
     # 2. CBSE 12th Board Track
-    cbse_track = create_track(
-        student_id=student_id,
-        name="CBSE 12th Board",
-        target_score=470,
-        max_score=500,
-    )
-    for s_name, s_code, s_target in [
-        ("Mathematics", "MATH-12", 95),
-        ("Physics", "PHY-12", 95),
-        ("Chemistry", "CHEM-12", 95),
-        ("English Core", "ENG-12", 95),
-        ("Computer Science", "CS-12", 90),
-    ]:
-        sub = create_subject(cbse_track["id"], s_name, s_code, 100, s_target)
-        _populate_chapters(sub["id"], s_code)
+    create_cbse12_track(student_id)
 
     # 3. Sample Tests (T1, T2, T3) with ticked syllabus chapters
     for code, t_date, notes, (m_s, p_s, c_s), (m_idx, p_idx, c_idx) in account["tests"]:

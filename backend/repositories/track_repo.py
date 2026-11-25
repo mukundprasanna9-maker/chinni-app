@@ -1,11 +1,17 @@
 from backend.repositories.database import get_connection
 
 
-def create_track(student_id: int, name: str, target_score: int, max_score: int) -> dict:
+def create_track(
+    student_id: int,
+    name: str,
+    target_score: int,
+    max_score: int,
+    exam_mode: str = "MULTI_SUBJECT",
+) -> dict:
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
-    query = "INSERT INTO tracks (student_id, name, target_score, max_score) VALUES (%s, %s, %s, %s)"
-    cursor.execute(query, (student_id, name, target_score, max_score))
+    query = "INSERT INTO tracks (student_id, name, target_score, max_score, exam_mode) VALUES (%s, %s, %s, %s, %s)"
+    cursor.execute(query, (student_id, name, target_score, max_score, exam_mode))
     conn.commit()
     track_id = cursor.lastrowid
     cursor.close()
@@ -16,7 +22,7 @@ def create_track(student_id: int, name: str, target_score: int, max_score: int) 
 def get_track_by_id(track_id: int) -> dict | None:
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
-    query = "SELECT id, student_id, name, target_score, max_score, created_at FROM tracks WHERE id = %s"
+    query = "SELECT id, student_id, name, target_score, max_score, exam_mode, created_at FROM tracks WHERE id = %s"
     cursor.execute(query, (track_id,))
     track = cursor.fetchone()
     cursor.close()
@@ -27,12 +33,46 @@ def get_track_by_id(track_id: int) -> dict | None:
 def get_tracks_by_student(student_id: int) -> list[dict]:
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
-    query = "SELECT id, student_id, name, target_score, max_score, created_at FROM tracks WHERE student_id = %s ORDER BY id ASC"
+    query = "SELECT id, student_id, name, target_score, max_score, exam_mode, created_at FROM tracks WHERE student_id = %s ORDER BY id ASC"
     cursor.execute(query, (student_id,))
     tracks = cursor.fetchall()
     cursor.close()
     conn.close()
     return tracks
+
+
+def update_track(
+    track_id: int,
+    target_score: int,
+    name: str | None = None,
+    max_score: int | None = None,
+) -> dict | None:
+    existing = get_track_by_id(track_id)
+    if not existing:
+        return None
+    new_name = name.strip() if name and name.strip() else existing["name"]
+    new_max = max_score if max_score is not None else existing["max_score"]
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute(
+        "UPDATE tracks SET name = %s, target_score = %s, max_score = %s WHERE id = %s",
+        (new_name, target_score, new_max, track_id),
+    )
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return get_track_by_id(track_id)
+
+
+def delete_track(track_id: int) -> bool:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM tracks WHERE id = %s", (track_id,))
+    conn.commit()
+    deleted = cursor.rowcount > 0
+    cursor.close()
+    conn.close()
+    return deleted
 
 
 def create_subject(track_id: int, name: str, code: str, max_marks: int, target_marks: int = 0) -> dict:

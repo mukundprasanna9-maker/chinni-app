@@ -8,7 +8,10 @@ from backend.repositories.student_repo import (
 )
 from backend.repositories.track_repo import (
     create_track,
+    get_track_by_id,
     get_tracks_by_student,
+    update_track,
+    delete_track,
     create_subject,
     get_subjects_by_track,
     create_group,
@@ -16,6 +19,7 @@ from backend.repositories.track_repo import (
     create_chapter,
     get_chapters_by_subject,
 )
+from backend.repositories.user_repo import create_user, authenticate_user, update_user_credentials
 from backend.repositories.test_repo import (
     create_test,
     get_test_by_id,
@@ -175,3 +179,31 @@ def test_syllabus_chapters_and_chapter_test_logging():
 
     ch_perf = get_chapter_test_scores_for_track(track["id"])
     assert len(ch_perf) == 2
+
+
+def test_track_update_delete_and_user_credential_update():
+    import uuid
+    uname = f"u_{uuid.uuid4().hex[:8]}"
+    user = create_user(uname, "oldpass123")
+    assert user is not None
+
+    # Wrong current password must fail
+    updated, err = update_user_credentials(user["id"], "wrongpass", new_username=uname + "_new")
+    assert updated is None and err == "INVALID_PASSWORD"
+
+    # Valid current password updates username & password
+    new_uname = uname + "_v2"
+    updated, err = update_user_credentials(user["id"], "oldpass123", new_username=new_uname, new_password="newpass456")
+    assert err is None and updated["username"] == new_uname
+    assert authenticate_user(new_uname, "newpass456") is not None
+
+    # Track update & delete cascade
+    student = create_student(name=new_uname, target_score=85, user_id=user["id"])
+    track = create_track(student["id"], "CBSE 8th Grade", target_score=85, max_score=100, exam_mode="SINGLE_SUBJECT")
+    assert track["exam_mode"] == "SINGLE_SUBJECT"
+
+    mod = update_track(track["id"], target_score=92)
+    assert mod["target_score"] == 92
+
+    assert delete_track(track["id"]) is True
+    assert get_track_by_id(track["id"]) is None

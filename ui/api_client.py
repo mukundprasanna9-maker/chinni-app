@@ -39,8 +39,31 @@ def login(username: str, password: str) -> Dict[str, Any]:
     return user
 
 
-def signup(username: str, password: str) -> Dict[str, Any]:
-    user = _post("/auth/signup", {"username": username, "password": password})
+def signup(username: str, password: str, track_template: str = "JEE Main 2026") -> Dict[str, Any]:
+    user = _post("/auth/signup", {
+        "username": username,
+        "password": password,
+        "track_template": track_template,
+    })
+    set_current_user(user)
+    return user
+
+
+def update_account(
+    user_id: int,
+    current_password: str,
+    new_username: Optional[str] = None,
+    new_password: Optional[str] = None,
+) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {
+        "user_id": user_id,
+        "current_password": current_password,
+    }
+    if new_username:
+        payload["new_username"] = new_username
+    if new_password:
+        payload["new_password"] = new_password
+    user = _put("/auth/account", payload)
     set_current_user(user)
     return user
 
@@ -68,6 +91,12 @@ def _put(endpoint: str, payload: Dict[str, Any]) -> Any:
     resp = requests.put(url, json=payload, timeout=5)
     resp.raise_for_status()
     return resp.json()
+
+
+def _delete(endpoint: str) -> None:
+    url = f"{API_BASE_URL}{endpoint}"
+    resp = requests.delete(url, timeout=5)
+    resp.raise_for_status()
 
 
 def check_backend_health() -> bool:
@@ -108,11 +137,44 @@ def get_track(track_id: int) -> Dict[str, Any]:
     return _get(f"/tracks/{track_id}")
 
 
-def create_track(student_id: int, name: str, target_score: int, max_score: int) -> Dict[str, Any]:
-    return _post(
-        f"/students/{student_id}/tracks",
-        {"name": name, "target_score": target_score, "max_score": max_score},
-    )
+def create_track(
+    student_id: int,
+    name: str,
+    target_score: int,
+    max_score: int,
+    exam_mode: str = "MULTI_SUBJECT",
+    template: Optional[str] = None,
+    custom_subjects: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {
+        "name": name,
+        "target_score": target_score,
+        "max_score": max_score,
+        "exam_mode": exam_mode,
+    }
+    if template:
+        payload["template"] = template
+    if custom_subjects is not None:
+        payload["custom_subjects"] = custom_subjects
+    return _post(f"/students/{student_id}/tracks", payload)
+
+
+def update_track(
+    track_id: int,
+    target_score: int,
+    name: Optional[str] = None,
+    max_score: Optional[int] = None,
+) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {"target_score": target_score}
+    if name:
+        payload["name"] = name
+    if max_score is not None:
+        payload["max_score"] = max_score
+    return _put(f"/tracks/{track_id}", payload)
+
+
+def delete_track(track_id: int) -> None:
+    _delete(f"/tracks/{track_id}")
 
 
 # Test Operations (The Log-a-Test slice)

@@ -11,6 +11,7 @@ from ui.home_screen import HomeScreen
 from ui.tests_screen import TestsScreen
 from ui.trends_screen import TrendsScreen
 from ui.focus_timer import FocusTimerScreen
+from ui.settings_screen import SettingsScreen
 from login_page import LoginPage
 
 ctk.set_appearance_mode("Dark")
@@ -122,13 +123,14 @@ class CadenceApp(ctk.CTk):
         user_box = ctk.CTkFrame(self.sidebar, fg_color=("#E2E8F0", "#1E293B"), corner_radius=8)
         user_box.pack(fill="x", padx=14, pady=(10, 10))
 
-        ctk.CTkLabel(
+        self.user_badge_label = ctk.CTkLabel(
             user_box,
             text=f"{role_text}: {username}",
             font=ctk.CTkFont(size=12, weight="bold"),
             text_color=("#0F172A", "#F8FAFC"),
             wraplength=175,
-        ).pack(padx=10, pady=(8, 2))
+        )
+        self.user_badge_label.pack(padx=10, pady=(8, 2))
 
         ctk.CTkButton(
             user_box,
@@ -151,6 +153,7 @@ class CadenceApp(ctk.CTk):
             ("tests", "📝 Log a Test"),
             ("trends", "📈 Trends & Ranking"),
             ("timer", "⏱️ Focus Timer"),
+            ("settings", "⚙️ Settings"),
         ]
 
         for screen_key, label in items:
@@ -206,7 +209,30 @@ class CadenceApp(ctk.CTk):
             "tests": TestsScreen(self.main_container, self.app_state, self.navigate),
             "trends": TrendsScreen(self.main_container, self.app_state, self.navigate),
             "timer": FocusTimerScreen(self.main_container, self.app_state, self.navigate),
+            "settings": SettingsScreen(
+                self.main_container,
+                self.app_state,
+                self.navigate,
+                on_account_updated=self._refresh_user_badge,
+            ),
         }
+
+    def _refresh_user_badge(self):
+        user = api_client.get_current_user()
+        username = user.get("username", "User") if user else "User"
+        role_text = "🛡️ Admin" if api_client.is_admin() else "👤 User"
+        if hasattr(self, "user_badge_label") and self.user_badge_label.winfo_exists():
+            self.user_badge_label.configure(text=f"{role_text}: {username}")
+        # Refresh student list in case student name synced with username
+        try:
+            students = api_client.get_students()
+            self.app_state["students"] = students
+            if students:
+                curr = self.app_state.get("current_student")
+                match = next((s for s in students if curr and s["id"] == curr["id"]), students[0])
+                self.app_state["current_student"] = match
+        except Exception:
+            pass
 
     def navigate(self, screen_key: str):
         # Update active button visual
@@ -229,6 +255,8 @@ class CadenceApp(ctk.CTk):
                     screen.refresh_trends()
                 elif hasattr(screen, "refresh_timer_screen"):
                     screen.refresh_timer_screen()
+                elif hasattr(screen, "refresh_settings"):
+                    screen.refresh_settings()
             else:
                 screen.pack_forget()
 

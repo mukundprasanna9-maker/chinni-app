@@ -62,3 +62,36 @@ def test_subject_averages_and_aggregation():
     assert summary["average_score"] == 183.0
     assert summary["gap_to_target"] == 31.0
     assert summary["trend_delta"] == 42.0
+
+
+def test_single_subject_flexible_marks_aggregation():
+    # Single-subject exams with different max marks (18/20 = 90%, 64/80 = 80%)
+    tests = [
+        {
+            "id": 1,
+            "total_score": 18.0,
+            "max_score": 20.0,
+            "subject_scores": [
+                {"subject_name": "Science", "subject_code": "SCI-8", "score": 18.0, "max_score": 20.0},
+            ],
+        },
+        {
+            "id": 2,
+            "total_score": 64.0,
+            "max_score": 80.0,
+            "subject_scores": [
+                {"subject_name": "Mathematics", "subject_code": "MATH-8", "score": 64.0, "max_score": 80.0},
+            ],
+        },
+    ]
+    summary = aggregate_track_performance(
+        tests,
+        target_score=85.0,
+        track_max_score=100.0,
+        single_subject_mode=True,
+    )
+    assert summary["single_subject_mode"] is True
+    assert summary["latest_percentage"] == 80.0
+    assert summary["average_percentage"] == 85.0
+    assert summary["gap_to_target"] == 5.0
+    assert summary["trend_delta"] == -10.0

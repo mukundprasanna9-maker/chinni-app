@@ -169,6 +169,7 @@ SCHEMA_SQL = [
         name VARCHAR(100) NOT NULL,
         target_score INT NOT NULL,
         max_score INT NOT NULL,
+        exam_mode VARCHAR(30) DEFAULT 'MULTI_SUBJECT',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -318,6 +319,11 @@ def init_db():
         except Exception:
             cursor.execute("ALTER TABLE focus_sessions ADD COLUMN chapter_id INT DEFAULT NULL")
             cursor.execute("ALTER TABLE focus_sessions ADD CONSTRAINT fk_focus_chapter FOREIGN KEY (chapter_id) REFERENCES syllabus_chapters(id) ON DELETE SET NULL")
+        # Migration: add exam_mode column to tracks if it doesn't exist
+        try:
+            cursor.execute("SELECT exam_mode FROM tracks LIMIT 1")
+        except Exception:
+            cursor.execute("ALTER TABLE tracks ADD COLUMN exam_mode VARCHAR(30) DEFAULT 'MULTI_SUBJECT'")
         db_conn.commit()
         cursor.close()
         db_conn.close()
@@ -350,6 +356,11 @@ def init_db():
             raw_conn.execute("SELECT chapter_id FROM focus_sessions LIMIT 1")
         except Exception:
             raw_conn.execute("ALTER TABLE focus_sessions ADD COLUMN chapter_id INTEGER DEFAULT NULL REFERENCES syllabus_chapters(id)")
+        # Migration: add exam_mode column to tracks if it doesn't exist (SQLite)
+        try:
+            raw_conn.execute("SELECT exam_mode FROM tracks LIMIT 1")
+        except Exception:
+            raw_conn.execute("ALTER TABLE tracks ADD COLUMN exam_mode VARCHAR(30) DEFAULT 'MULTI_SUBJECT'")
         raw_conn.commit()
         raw_conn.close()
     return True

@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, status
 from typing import List
 from backend.schemas.track import (
     TrackCreate,
+    TrackUpdate,
     TrackResponse,
     SubjectCreate,
     SubjectResponse,
@@ -15,6 +16,8 @@ from backend.repositories.track_repo import (
     create_track,
     get_track_by_id,
     get_tracks_by_student,
+    update_track,
+    delete_track,
     create_subject,
     get_subjects_by_track,
     get_subject_by_id,
@@ -23,6 +26,7 @@ from backend.repositories.track_repo import (
     create_chapter,
     get_chapters_by_subject,
 )
+from backend.seed.seed_data import create_track_from_template
 
 router = APIRouter(tags=["Tracks & Subjects"])
 
@@ -50,7 +54,24 @@ def add_track_for_student(student_id: int, payload: TrackCreate):
     student = get_student_by_id(student_id)
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
-    track = create_track(student_id, payload.name, payload.target_score, payload.max_score)
+    if payload.template or payload.custom_subjects is not None:
+        bundle = create_track_from_template(
+            student_id=student_id,
+            template=payload.template or "Custom",
+            name=payload.name,
+            target_score=payload.target_score,
+            max_score=payload.max_score,
+            exam_mode=payload.exam_mode,
+            custom_subjects=payload.custom_subjects,
+        )
+        return _hydrate_track(bundle["track"])
+    track = create_track(
+        student_id,
+        payload.name,
+        payload.target_score,
+        payload.max_score,
+        exam_mode=payload.exam_mode or "MULTI_SUBJECT",
+    )
     return _hydrate_track(track)
 
 
@@ -60,6 +81,26 @@ def fetch_track(track_id: int):
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
     return _hydrate_track(track)
+
+
+@router.put("/tracks/{track_id}", response_model=TrackResponse)
+def modify_track(track_id: int, payload: TrackUpdate):
+    updated = update_track(
+        track_id,
+        target_score=payload.target_score,
+        name=payload.name,
+        max_score=payload.max_score,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Track not found")
+    return _hydrate_track(updated)
+
+
+@router.delete("/tracks/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_track(track_id: int):
+    success = delete_track(track_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Track not found")
 
 
 @router.post("/tracks/{track_id}/subjects", response_model=SubjectResponse, status_code=status.HTTP_201_CREATED)

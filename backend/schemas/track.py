@@ -57,6 +57,15 @@ class TrackCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100, description="Track name, e.g. JEE Main 2026")
     target_score: int = Field(..., gt=0)
     max_score: int = Field(..., gt=0)
+    exam_mode: Optional[str] = "MULTI_SUBJECT"
+    template: Optional[str] = None
+    custom_subjects: Optional[List[str]] = None
+
+
+class TrackUpdate(BaseModel):
+    target_score: int = Field(..., gt=0)
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    max_score: Optional[int] = Field(None, gt=0)
 
 
 class TrackResponse(BaseModel):
@@ -65,5 +74,6 @@ class TrackResponse(BaseModel):
     name: str
     target_score: int
     max_score: int
+    exam_mode: Optional[str] = "MULTI_SUBJECT"
     created_at: Optional[datetime] = None
     subjects: Optional[List[SubjectResponse]] = []

@@ -1,7 +1,8 @@
-"""Login & Sign Up popup window for Cadence (chinni-app).
+"""Login & Sign Up screen for Cadence (chinni-app).
 
 Integrates teammate's LoginPage design with backend authentication
-(/auth/login and /auth/signup), supporting regular users and admin.
+(/auth/login and /auth/signup), supporting regular users, admin, and
+track/class selection when signing up.
 """
 
 import customtkinter as ctk
@@ -27,14 +28,14 @@ class LoginPage(ctk.CTkFrame):
             text="CADENCE",
             font=ctk.CTkFont(family="Arial", size=22, weight="bold"),
             text_color=ACCENT_COLOR,
-        ).pack(pady=(24, 4))
+        ).pack(pady=(22, 4))
 
         ctk.CTkLabel(
             self.card,
             text="Study Rhythm & Multi-Subject Tracker",
             font=ctk.CTkFont(family="Arial", size=11),
             text_color="#8d99ae",
-        ).pack(pady=(0, 14))
+        ).pack(pady=(0, 12))
 
         self.mode_label = ctk.CTkLabel(
             self.card,
@@ -42,31 +43,51 @@ class LoginPage(ctk.CTkFrame):
             font=ctk.CTkFont(family="Arial", size=14, weight="bold"),
             text_color=TEXT_COLOR,
         )
-        self.mode_label.pack(pady=(0, 12))
+        self.mode_label.pack(pady=(0, 10))
 
         self.username_entry = ctk.CTkEntry(
             self.card,
             placeholder_text="Username",
             width=280,
-            height=40,
+            height=38,
             fg_color=BG_COLOR,
             border_color=ACCENT_COLOR,
             text_color=TEXT_COLOR,
         )
-        self.username_entry.pack(pady=8)
+        self.username_entry.pack(pady=6)
 
         self.password_entry = ctk.CTkEntry(
             self.card,
             placeholder_text="Password",
             show="*",
             width=280,
-            height=40,
+            height=38,
             fg_color=BG_COLOR,
             border_color=ACCENT_COLOR,
             text_color=TEXT_COLOR,
         )
-        self.password_entry.pack(pady=8)
+        self.password_entry.pack(pady=6)
         self.password_entry.bind("<Return>", lambda e: self.handle_submit())
+
+        # Starting track selector (shown only during Sign Up)
+        self.track_picker_frame = ctk.CTkFrame(self.card, fg_color="transparent")
+        ctk.CTkLabel(
+            self.track_picker_frame,
+            text="Starting Track / Class:",
+            font=ctk.CTkFont(family="Arial", size=11, weight="bold"),
+            text_color="#cbd5e1",
+        ).pack(anchor="w")
+        self.track_template_var = ctk.StringVar(value="JEE Main 2026")
+        self.track_menu = ctk.CTkOptionMenu(
+            self.track_picker_frame,
+            variable=self.track_template_var,
+            values=["JEE Main 2026", "CBSE 8th Grade", "CBSE 12th Board"],
+            width=280,
+            height=34,
+            fg_color=BG_COLOR,
+            button_color=ACCENT_COLOR,
+        )
+        self.track_menu.pack(pady=(4, 0))
 
         self.status_label = ctk.CTkLabel(
             self.card,
@@ -86,7 +107,7 @@ class LoginPage(ctk.CTkFrame):
             hover_color="#2667cc",
             font=ctk.CTkFont(family="Arial", size=13, weight="bold"),
         )
-        self.submit_btn.pack(pady=(8, 10))
+        self.submit_btn.pack(pady=(6, 8))
 
         self.toggle_btn = ctk.CTkButton(
             self.card,
@@ -99,14 +120,14 @@ class LoginPage(ctk.CTkFrame):
             text_color="#8ecae6",
             font=ctk.CTkFont(family="Arial", size=11),
         )
-        self.toggle_btn.pack(pady=(0, 8))
+        self.toggle_btn.pack(pady=(0, 6))
 
         ctk.CTkLabel(
             self.card,
             text="Admin login: admin / admin123",
             font=ctk.CTkFont(family="Arial", size=10),
             text_color="#6c7a96",
-        ).pack(pady=(2, 12))
+        ).pack(pady=(2, 10))
 
     def _toggle_mode(self):
         if self._mode == "login":
@@ -114,11 +135,21 @@ class LoginPage(ctk.CTkFrame):
             self.mode_label.configure(text="Create a New Account")
             self.submit_btn.configure(text="Sign Up")
             self.toggle_btn.configure(text="Already have an account? Log In")
+            self.track_picker_frame.pack(before=self.status_label, pady=(4, 4))
+            try:
+                self.winfo_toplevel().geometry("450x540")
+            except Exception:
+                pass
         else:
             self._mode = "login"
             self.mode_label.configure(text="Log In to Your Account")
             self.submit_btn.configure(text="Login")
             self.toggle_btn.configure(text="Don't have an account? Sign Up")
+            self.track_picker_frame.pack_forget()
+            try:
+                self.winfo_toplevel().geometry("450x470")
+            except Exception:
+                pass
         self.status_label.configure(text="")
 
     def handle_submit(self):
@@ -137,7 +168,11 @@ class LoginPage(ctk.CTkFrame):
             if self._mode == "login":
                 user = api_client.login(username, password)
             else:
-                user = api_client.signup(username, password)
+                user = api_client.signup(
+                    username,
+                    password,
+                    track_template=self.track_template_var.get(),
+                )
 
             self.on_success_callback(user)
         except Exception as e:

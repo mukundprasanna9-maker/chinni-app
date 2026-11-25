@@ -30,7 +30,13 @@ def get_track_scorecard(track_id: int):
         raise HTTPException(status_code=404, detail="Track not found")
     tests = get_tests_by_track(track_id)
     full_tests = [get_test_by_id(t["id"]) for t in tests]
-    scorecard = aggregate_track_performance(full_tests, target_score=float(track["target_score"]))
+    is_single = track.get("exam_mode") == "SINGLE_SUBJECT"
+    scorecard = aggregate_track_performance(
+        full_tests,
+        target_score=float(track["target_score"]),
+        track_max_score=float(track.get("max_score", 300)),
+        single_subject_mode=is_single,
+    )
     scorecard["track"] = track
     return scorecard
 

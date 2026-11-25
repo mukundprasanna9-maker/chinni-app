@@ -76,41 +76,71 @@ def calculate_subject_averages(tests: list[dict]) -> dict[str, dict]:
     return averages
 
 
-def aggregate_track_performance(tests: list[dict], target_score: float) -> dict:
+def aggregate_track_performance(
+    tests: list[dict],
+    target_score: float,
+    track_max_score: float = 300.0,
+    single_subject_mode: bool = False,
+) -> dict:
     """Combines test records into an overarching scorecard.
 
-    Formulas:
-    - Average total score = sum(total_scores) / total_tests
-    - Highest score = max(total_scores)
-    - Latest score = total_scores[-1]
-    - Target gap = target_score - latest_score
-    - Trend delta = latest_score - previous_score
+    For standard multi-subject tracks (e.g. JEE Main out of 300), compares raw
+    scores directly against target_score.
+    For single-subject flexible-mark tracks (e.g. CBSE 8th Grade where unit tests
+    may be out of 20, 40, or 80), normalizes scores to percentages so results
+    across varying exam patterns compare accurately against target_percentage.
     """
+    target_pct = calculate_percentage(target_score, track_max_score) if track_max_score > 0 else target_score
+
     if not tests:
         return {
             "test_count": 0,
             "latest_score": 0.0,
+            "latest_max_score": 100.0 if single_subject_mode else track_max_score,
+            "latest_percentage": 0.0,
             "highest_score": 0.0,
+            "highest_percentage": 0.0,
             "average_score": 0.0,
-            "gap_to_target": target_score,
+            "average_percentage": 0.0,
+            "target_percentage": target_pct,
+            "gap_to_target": target_pct if single_subject_mode else target_score,
             "trend_delta": 0.0,
+            "single_subject_mode": single_subject_mode,
             "subject_averages": {},
         }
 
     scores = [float(t.get("total_score", 0.0)) for t in tests]
+    maxes = [float(t.get("max_score", 100.0) or 100.0) for t in tests]
+    pcts = [calculate_percentage(s, m) for s, m in zip(scores, maxes)]
+
     latest_score = scores[-1]
+    latest_max = maxes[-1]
+    latest_pct = pcts[-1]
     highest_score = max(scores)
+    highest_pct = max(pcts)
     avg_score = round(sum(scores) / len(scores), 2)
-    gap = calculate_gap_to_target(latest_score, target_score)
-    delta = calculate_test_trend_delta(scores)
+    avg_pct = round(sum(pcts) / len(pcts), 2)
     sub_avgs = calculate_subject_averages(tests)
+
+    if single_subject_mode:
+        gap = calculate_gap_to_target(latest_pct, target_pct)
+        delta = calculate_test_trend_delta(pcts)
+    else:
+        gap = calculate_gap_to_target(latest_score, target_score)
+        delta = calculate_test_trend_delta(scores)
 
     return {
         "test_count": len(tests),
         "latest_score": latest_score,
+        "latest_max_score": latest_max,
+        "latest_percentage": latest_pct,
         "highest_score": highest_score,
+        "highest_percentage": highest_pct,
         "average_score": avg_score,
+        "average_percentage": avg_pct,
+        "target_percentage": target_pct,
         "gap_to_target": gap,
         "trend_delta": delta,
+        "single_subject_mode": single_subject_mode,
         "subject_averages": sub_avgs,
     }

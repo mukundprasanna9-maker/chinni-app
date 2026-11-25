@@ -109,3 +109,64 @@ def ensure_admin_exists(username: str = "admin", password: str = "admin123") -> 
         print(f"[Auth] Default admin account created (username: {username}, password: {password})")
     else:
         print(f"[Auth] Admin account '{username}' already exists.")
+
+
+def update_user_credentials(
+    user_id: int,
+    current_password: str,
+    new_username: str | None = None,
+    new_password: str | None = None,
+) -> tuple[dict | None, str | None]:
+    """Verify current_password, then update username and/or password.
+
+    Returns (updated_user_dict, None) on success or (None, error_code) on failure.
+    """
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute(
+        "SELECT id, username, password_hash, is_admin, created_at FROM users WHERE id = %s",
+        (user_id,),
+    )
+    user = cursor.fetchone()
+    if not user:
+        cursor.close()
+        conn.close()
+        return None, "NOT_FOUND"
+
+    if not _verify_password(current_password, user["password_hash"]):
+        cursor.close()
+        conn.close()
+        return None, "INVALID_PASSWORD"
+
+    old_username = user["username"]
+    final_username = new_username.strip() if new_username and new_username.strip() else old_username
+    final_hash = _hash_password(new_password) if new_password else user["password_hash"]
+
+    if final_username != old_username:
+        cursor.execute(
+            "SELECT id FROM users WHERE username = %s AND id != %s",
+            (final_username, user_id),
+        )
+        if cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return None, "USERNAME_TAKEN"
+
+    cursor.execute(
+        "UPDATE users SET username = %s, password_hash = %s WHERE id = %s",
+        (final_username, final_hash, user_id),
+    )
+    # Keep student profile name synced if it matched the old username
+    if final_username != old_username:
+        cursor.execute(
+            "UPDATE students SET name = %s WHERE user_id = %s AND name = %s",
+            (final_username, user_id, old_username),
+        )
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    updated = get_user_by_id(user_id)
+    if updated:
+        updated["is_admin"] = bool(updated["is_admin"])
+    return updated, None
