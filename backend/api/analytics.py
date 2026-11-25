@@ -6,7 +6,7 @@ from backend.repositories.test_repo import (
     get_all_group_scores_for_track,
     get_chapter_test_scores_for_track,
 )
-from backend.repositories.plan_repo import get_study_plans
+from backend.repositories.plan_repo import get_study_plans, get_focus_sessions
 from backend.repositories.student_repo import get_student_by_id
 from backend.services.scoring import aggregate_track_performance
 from backend.services.spend_ranking import (
@@ -14,7 +14,11 @@ from backend.services.spend_ranking import (
     rank_chapters_to_focus,
     rank_subjects_to_focus,
 )
-from backend.services.planning import allocate_study_hours, summarize_adherence
+from backend.services.planning import (
+    allocate_study_hours,
+    build_flexible_focus_suggestions,
+    summarize_adherence,
+)
 
 router = APIRouter(tags=["Analytics & Trends"])
 
@@ -37,19 +41,27 @@ def get_focus_rankings(track_id: int, available_hours: float = 20.0):
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
+    sessions = get_focus_sessions(track["student_id"])
     chapter_scores = get_chapter_test_scores_for_track(track_id)
     if chapter_scores:
-        ranked_items = rank_chapters_to_focus(chapter_scores)
+        ranked_items = rank_chapters_to_focus(chapter_scores, focus_sessions=sessions)
     else:
         all_group_scores = get_all_group_scores_for_track(track_id)
         ranked_items = rank_groups_to_focus(all_group_scores)
 
     allocations = allocate_study_hours(ranked_items, total_hours=available_hours)
+    suggestions = build_flexible_focus_suggestions(ranked_items)
+    total_timer_mins = sum(int(s.get("duration_minutes") or 0) for s in sessions)
     return {
         "track_id": track_id,
         "track_name": track["name"],
         "ranked_groups": ranked_items,
         "recommended_allocations": allocations,
+        "focus_suggestions": suggestions,
+        "timer_summary": {
+            "total_minutes": total_timer_mins,
+            "session_count": len(sessions),
+        },
     }
 
 

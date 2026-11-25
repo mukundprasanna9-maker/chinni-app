@@ -50,6 +50,55 @@ def allocate_study_hours(ranked_groups: list[dict], total_hours: float = 20.0) -
     return allocations
 
 
+def build_flexible_focus_suggestions(ranked_items: list[dict], limit: int = 5) -> list[dict]:
+    """Builds schedule-free, suggestive focus cards instead of rigid hour quotas.
+
+    Assigns a relative effort share (% of whatever free study time the student has)
+    plus a recommended timer sprint mode (25m / 45m / 60m) and explanation.
+    """
+    if not ranked_items:
+        return []
+
+    top_items = ranked_items[:limit]
+    total_index = sum(max(0.1, float(item.get("opportunity_index", 1.0))) for item in top_items)
+
+    raw_shares = []
+    for item in top_items:
+        idx = max(0.1, float(item.get("opportunity_index", 1.0)))
+        raw_shares.append((idx / total_index) * 100.0 if total_index > 0 else 100.0 / len(top_items))
+
+    int_shares = [int(round(s)) for s in raw_shares]
+    if int_shares:
+        diff = 100 - sum(int_shares)
+        int_shares[0] = max(1, int_shares[0] + diff)
+
+    suggestions = []
+    for item, share_pct in zip(top_items, int_shares):
+        prio = item.get("priority", "MEDIUM")
+        default_mins = 45 if prio == "HIGH" else (25 if prio == "LOW" else 45)
+        default_style = (
+            "Deep Rebuild" if prio == "HIGH" else ("Quick Refresh" if prio == "LOW" else "Timed Practice")
+        )
+        suggestions.append({
+            "chapter_id": item.get("chapter_id"),
+            "group_id": item.get("group_id"),
+            "chapter_code": item.get("chapter_code") or item.get("group_code", ""),
+            "chapter_name": item.get("chapter_name") or item.get("group_name", ""),
+            "subject_id": item.get("subject_id"),
+            "subject_name": item.get("subject_name", ""),
+            "subject_code": item.get("subject_code", ""),
+            "priority": prio,
+            "effort_share_percent": share_pct,
+            "cadence_style": item.get("cadence_style", default_style),
+            "suggested_minutes": item.get("suggested_minutes", default_mins),
+            "recent_focus_minutes": item.get("recent_focus_minutes", 0),
+            "percentage": item.get("percentage", 0.0),
+            "reason": item.get("reason") or f"Avg {item.get('percentage', 0):.0f}% in recent tests",
+        })
+
+    return suggestions
+
+
 def summarize_adherence(study_plans: list[dict]) -> dict:
     """Summarizes overall study plan adherence across all logged sessions.
 

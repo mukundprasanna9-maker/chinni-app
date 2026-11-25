@@ -1,7 +1,9 @@
 """Focus Timer Screen for Cadence (chinni-app).
 
-Provides an interactive Pomodoro / study focus timer, logs completed
-sessions tagged by subject and group, and shows weekly plan adherence.
+Provides an interactive Pomodoro / study focus timer connected directly to
+the suggestive Focus Queue: surfaces "Suggested Next Up" right above the
+timer, accepts one-click sprint presets from TrendsScreen, and feeds logged
+sessions back into future focus suggestions.
 """
 
 import customtkinter as ctk
@@ -19,10 +21,11 @@ class FocusTimerScreen(ctk.CTkFrame):
         self.timer_running = False
         self._timer_job = None
 
-        # Maps for subject/chapter name -> data (populated from track data)
         self._subject_map = {}   # name -> subject dict
         self._chapter_map = {}   # "M01: Sets, Relations & Functions" -> chapter dict
         self._chapter_is_legacy_group = False
+        self._top_suggestion = None
+        self._preset_buttons = {}
 
         self._build_ui()
         self.refresh_timer_screen()
@@ -37,14 +40,14 @@ class FocusTimerScreen(ctk.CTkFrame):
 
         ctk.CTkLabel(
             title_box,
-            text="FOCUS TIMER & STUDY ADHERENCE",
+            text="FOCUS TIMER & STUDY CADENCE",
             font=ctk.CTkFont(size=20, weight="bold"),
             text_color=("#0F172A", "#38BDF8"),
         ).pack(anchor="w")
 
         ctk.CTkLabel(
             title_box,
-            text="Deep work sessions tagged to subjects and prioritized groups",
+            text="Deep work sprints linked to your chapter suggestions and logged sessions",
             font=ctk.CTkFont(size=12),
             text_color=("#64748B", "#94A3B8"),
         ).pack(anchor="w")
@@ -62,15 +65,56 @@ class FocusTimerScreen(ctk.CTkFrame):
         self.scroll_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
         self.scroll_frame.pack(fill="both", expand=True, padx=15, pady=5)
 
+        # ✨ Suggested Next Up Banner (links Trends suggestions <-> Focus Timer)
+        self.suggestion_card = ctk.CTkFrame(
+            self.scroll_frame,
+            fg_color=("#DBEAFE", "#172554"),
+            corner_radius=12,
+        )
+        self.suggestion_card.pack(fill="x", pady=(4, 10))
+
+        sug_inner = ctk.CTkFrame(self.suggestion_card, fg_color="transparent")
+        sug_inner.pack(fill="x", padx=18, pady=12)
+
+        sug_left = ctk.CTkFrame(sug_inner, fg_color="transparent")
+        sug_left.pack(side="left", fill="x", expand=True)
+
+        self.suggestion_title = ctk.CTkLabel(
+            sug_left,
+            text="✨ Suggested Next Up: Checking your recent tests...",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color=("#1E3A8A", "#93C5FD"),
+        )
+        self.suggestion_title.pack(anchor="w")
+
+        self.suggestion_sub = ctk.CTkLabel(
+            sug_left,
+            text="Pick any slot in your day — your completed sprints automatically balance future suggestions.",
+            font=ctk.CTkFont(size=11),
+            text_color=("#3B82F6", "#BFDBFE"),
+        )
+        self.suggestion_sub.pack(anchor="w", pady=(2, 0))
+
+        self.load_sug_btn = ctk.CTkButton(
+            sug_inner,
+            text="⚡ Load Suggested",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color="#2563EB",
+            hover_color="#1D4ED8",
+            width=135,
+            height=34,
+            command=self._apply_top_suggestion,
+        )
+        self.load_sug_btn.pack(side="right", padx=(10, 0))
+
         # Timer & Tagging Card
         self.timer_card = ctk.CTkFrame(self.scroll_frame, fg_color=("#E2E8F0", "#1E293B"), corner_radius=12)
-        self.timer_card.pack(fill="x", pady=10)
+        self.timer_card.pack(fill="x", pady=8)
 
-        # Tagging Row (Subject & Group)
+        # Tagging Row (Subject & Chapter)
         tag_row = ctk.CTkFrame(self.timer_card, fg_color="transparent")
         tag_row.pack(fill="x", padx=20, pady=(15, 10))
 
-        # Subject Selector — populated dynamically from track data
         s_box = ctk.CTkFrame(tag_row, fg_color="transparent")
         s_box.pack(side="left", padx=(0, 15))
         ctk.CTkLabel(s_box, text="Study Subject:", font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
@@ -84,7 +128,6 @@ class FocusTimerScreen(ctk.CTkFrame):
         )
         self.subject_menu.pack(pady=(4, 0))
 
-        # Chapter Selector — populated dynamically when subject changes
         g_box = ctk.CTkFrame(tag_row, fg_color="transparent")
         g_box.pack(side="left", padx=(0, 15))
         ctk.CTkLabel(g_box, text="Focus Chapter:", font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
@@ -93,21 +136,28 @@ class FocusTimerScreen(ctk.CTkFrame):
             g_box,
             variable=self.group_var,
             values=["Loading..."],
-            width=240,
+            width=250,
         )
         self.group_menu.pack(pady=(4, 0))
 
         # Duration Preset Buttons
         p_box = ctk.CTkFrame(tag_row, fg_color="transparent")
         p_box.pack(side="right")
-        ctk.CTkLabel(p_box, text="Preset Blocks:", font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
+        ctk.CTkLabel(p_box, text="Sprint Blocks:", font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
 
         p_btns = ctk.CTkFrame(p_box, fg_color="transparent")
         p_btns.pack(pady=(4, 0))
 
-        ctk.CTkButton(p_btns, text="25m", width=55, command=lambda: self._set_duration(25)).pack(side="left", padx=2)
-        ctk.CTkButton(p_btns, text="45m", width=55, command=lambda: self._set_duration(45)).pack(side="left", padx=2)
-        ctk.CTkButton(p_btns, text="60m", width=55, command=lambda: self._set_duration(60)).pack(side="left", padx=2)
+        for mins in (25, 45, 60):
+            btn = ctk.CTkButton(
+                p_btns,
+                text=f"{mins}m",
+                width=55,
+                command=lambda m=mins: self._set_duration(m),
+            )
+            btn.pack(side="left", padx=2)
+            self._preset_buttons[mins] = btn
+        self._highlight_preset_button(25)
 
         # Big Digital Clock
         self.clock_label = ctk.CTkLabel(
@@ -116,9 +166,17 @@ class FocusTimerScreen(ctk.CTkFrame):
             font=ctk.CTkFont(size=64, weight="bold"),
             text_color=("#0284C7", "#38BDF8"),
         )
-        self.clock_label.pack(pady=20)
+        self.clock_label.pack(pady=(16, 4))
 
-        # Timer Controls — Bug fix: previously start_pause_btn was packed twice; reset btn was never shown
+        self.sprint_status_label = ctk.CTkLabel(
+            self.timer_card,
+            text="",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color="#10B981",
+        )
+        self.sprint_status_label.pack(pady=(0, 10))
+
+        # Timer Controls
         ctrl_row = ctk.CTkFrame(self.timer_card, fg_color="transparent")
         ctrl_row.pack(pady=(0, 20))
 
@@ -134,7 +192,6 @@ class FocusTimerScreen(ctk.CTkFrame):
         )
         self.start_pause_btn.pack(side="left", padx=8)
 
-        # Bug fix: previously this was never packed because start_pause_btn.pack() was called twice instead
         self.reset_btn = ctk.CTkButton(
             ctrl_row,
             text="↺ Reset",
@@ -157,20 +214,31 @@ class FocusTimerScreen(ctk.CTkFrame):
             command=self._log_session,
         ).pack(side="left", padx=8)
 
-        # Adherence Summary Card
+        # Study Activity & Adherence Card
         self.adherence_card = ctk.CTkFrame(self.scroll_frame, fg_color=("#E2E8F0", "#1E293B"), corner_radius=12)
         self.adherence_card.pack(fill="x", pady=10)
 
         adh_inner = ctk.CTkFrame(self.adherence_card, fg_color="transparent")
         adh_inner.pack(fill="x", padx=20, pady=15)
 
-        self.adherence_label = ctk.CTkLabel(
-            adh_inner,
-            text="Weekly Study Adherence: Calculating...",
+        adh_left = ctk.CTkFrame(adh_inner, fg_color="transparent")
+        adh_left.pack(side="left")
+
+        self.timer_activity_label = ctk.CTkLabel(
+            adh_left,
+            text="Focus Timer Activity: Calculating...",
             font=ctk.CTkFont(size=15, weight="bold"),
             text_color=("#0F172A", "#F8FAFC"),
         )
-        self.adherence_label.pack(side="left")
+        self.timer_activity_label.pack(anchor="w")
+
+        self.adherence_label = ctk.CTkLabel(
+            adh_left,
+            text="Weekly Study Adherence: Calculating...",
+            font=ctk.CTkFont(size=12),
+            text_color=("#64748B", "#94A3B8"),
+        )
+        self.adherence_label.pack(anchor="w", pady=(2, 0))
 
         self.adherence_badge = ctk.CTkLabel(
             adh_inner,
@@ -194,14 +262,59 @@ class FocusTimerScreen(ctk.CTkFrame):
         self.sessions_container = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
         self.sessions_container.pack(fill="x", pady=5)
 
+    def _highlight_preset_button(self, active_minutes: int):
+        for mins, btn in self._preset_buttons.items():
+            if mins == active_minutes:
+                btn.configure(fg_color="#0284C7", hover_color="#0369A1")
+            else:
+                btn.configure(fg_color="#475569", hover_color="#334155")
+
+    def _apply_preset_dict(self, subject_name: str, chapter_label: str, minutes: int, status_msg: str = ""):
+        if subject_name and subject_name in self._subject_map:
+            self.subject_var.set(subject_name)
+            self._populate_groups_for_subject(subject_name)
+        if chapter_label and chapter_label in self._chapter_map:
+            self.group_var.set(chapter_label)
+        if minutes in (25, 45, 60):
+            self._set_duration(minutes)
+        if status_msg:
+            self.sprint_status_label.configure(text=status_msg)
+
+    def _apply_top_suggestion(self):
+        if not self._top_suggestion:
+            return
+        ch_code = self._top_suggestion.get("chapter_code", "")
+        ch_name = self._top_suggestion.get("chapter_name", "")
+        label = f"{ch_code}: {ch_name}" if ch_code else ch_name
+        mins = int(self._top_suggestion.get("suggested_minutes", 45))
+        style = self._top_suggestion.get("cadence_style", "Focused Sprint")
+        self._apply_preset_dict(
+            self._top_suggestion.get("subject_name", ""),
+            label,
+            mins,
+            status_msg=f"✓ Loaded {style}: {self._top_suggestion.get('subject_name', '')} • {label} ({mins}m)",
+        )
+
     def refresh_timer_screen(self):
         curr_student = self.app_state.get("current_student")
         curr_track = self.app_state.get("current_track")
         if not curr_student:
             return
 
-        # Bug fix: load subjects and groups dynamically from the active track
         self._load_subject_group_menus(curr_track)
+
+        # Apply one-click preset if user clicked "▶ Start Xm Sprint" on TrendsScreen
+        preset = self.app_state.pop("timer_preset", None)
+        if preset:
+            self._apply_preset_dict(
+                preset.get("subject_name", ""),
+                preset.get("chapter_label", ""),
+                int(preset.get("minutes", 45)),
+                status_msg=f"✓ Loaded {preset.get('style', 'Sprint')}: {preset.get('subject_name', '')} • {preset.get('chapter_label', '')} ({preset.get('minutes', 45)}m)",
+            )
+
+        # Load top suggestion for "Suggested Next Up" banner
+        self._refresh_top_suggestion(curr_track)
 
         sid = curr_student["id"]
 
@@ -214,7 +327,7 @@ class FocusTimerScreen(ctk.CTkFrame):
             actual = adh.get("total_actual_hours", 0.0)
 
             self.adherence_label.configure(
-                text=f"Weekly Adherence: {pct:.1f}% ({actual:.1f}h completed / {planned:.1f}h planned)"
+                text=f"Weekly Study Plan Adherence: {pct:.1f}% ({actual:.1f}h / {planned:.1f}h planned)"
             )
             color_bg = ("#D1FAE5", "#064E3B") if pct >= 80 else ("#FEF3C7", "#78350F")
             color_text = ("#047857", "#6EE7B7") if pct >= 80 else ("#B45309", "#FDE68A")
@@ -222,16 +335,24 @@ class FocusTimerScreen(ctk.CTkFrame):
         except Exception as e:
             print(f"[Timer Adherence Error] {e}")
 
-        # Load Sessions
+        # Load Sessions & Timer Activity Summary
         for w in self.sessions_container.winfo_children():
             w.destroy()
 
         try:
             sessions = api_client.get_focus_sessions(sid)
+            total_mins = sum(int(s.get("duration_minutes") or 0) for s in sessions)
+            hrs, rem = divmod(total_mins, 60)
+            time_str = f"{hrs}h {rem}m" if hrs > 0 else f"{rem}m"
+            sess_word = "session" if len(sessions) == 1 else "sessions"
+            self.timer_activity_label.configure(
+                text=f"Focus Timer Activity: {time_str} logged across {len(sessions)} {sess_word}"
+            )
+
             if not sessions:
                 ctk.CTkLabel(
                     self.sessions_container,
-                    text="No focus sessions recorded yet. Start the timer and log your first block!",
+                    text="No focus sessions recorded yet. Start the timer and log your first sprint!",
                     text_color="#94A3B8",
                 ).pack(pady=10)
                 return
@@ -281,6 +402,36 @@ class FocusTimerScreen(ctk.CTkFrame):
 
         except Exception as e:
             print(f"[Timer Sessions Render Error] {e}")
+
+    def _refresh_top_suggestion(self, curr_track):
+        self._top_suggestion = None
+        if not curr_track:
+            return
+        try:
+            data = api_client.get_focus_rankings(curr_track["id"])
+            suggestions = data.get("focus_suggestions") or []
+            if not suggestions:
+                self.suggestion_title.configure(text="✨ Suggested Next Up: Log a test with chapters to unlock smart sprint suggestions")
+                self.suggestion_sub.configure(text="Or choose any subject and chapter below to start a free-form focus sprint.")
+                self.load_sug_btn.configure(state="disabled")
+                return
+
+            top = suggestions[0]
+            self._top_suggestion = top
+            self.load_sug_btn.configure(state="normal")
+            ch_code = top.get("chapter_code", "")
+            ch_name = top.get("chapter_name", "")
+            mins = int(top.get("suggested_minutes", 45))
+            style = top.get("cadence_style", "Focused Drill")
+            share = top.get("effort_share_percent", 25)
+            self.suggestion_title.configure(
+                text=f"✨ Suggested Next Up: {top.get('subject_name', '')} • {ch_code}: {ch_name}  ({mins}m {style})"
+            )
+            self.suggestion_sub.configure(
+                text=f"~{share}% suggested priority  |  {top.get('reason', '')}"
+            )
+        except Exception as e:
+            print(f"[Timer Suggestion Error] {e}")
 
     def _load_subject_group_menus(self, curr_track):
         """Populate subject and chapter selectors from actual track data."""
@@ -352,6 +503,7 @@ class FocusTimerScreen(ctk.CTkFrame):
         self._reset_timer()
         self.selected_duration_minutes = minutes
         self.timer_seconds_left = minutes * 60
+        self._highlight_preset_button(minutes)
         self._update_clock_display()
 
     def _update_clock_display(self):
@@ -391,7 +543,7 @@ class FocusTimerScreen(ctk.CTkFrame):
         self._update_clock_display()
 
     def _log_session(self):
-        """Include subject_id and chapter_id from the actual selected dropdowns."""
+        """Include subject_id and chapter_id, then refresh live suggestions."""
         curr_student = self.app_state.get("current_student")
         if not curr_student:
             return
@@ -406,7 +558,7 @@ class FocusTimerScreen(ctk.CTkFrame):
 
         payload = {
             "duration_minutes": self.selected_duration_minutes,
-            "notes": f"Completed {subject_name} — {chapter_label} study block",
+            "notes": f"Completed {subject_name} — {chapter_label} sprint",
             "adherence_status": "COMPLETED",
         }
 
@@ -420,6 +572,9 @@ class FocusTimerScreen(ctk.CTkFrame):
 
         try:
             api_client.log_focus_session(curr_student["id"], payload)
+            self.sprint_status_label.configure(
+                text=f"✓ Logged {self.selected_duration_minutes}m sprint on {chapter_label} — suggestions updated!"
+            )
             self._reset_timer()
             self.refresh_timer_screen()
         except Exception as e:

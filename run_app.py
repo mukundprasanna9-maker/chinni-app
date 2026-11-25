@@ -29,6 +29,7 @@ class CadenceApp(ctk.CTk):
             "current_student": None,
             "tracks": [],
             "current_track": None,
+            "timer_preset": None,
         }
         self.screens = {}
         self.nav_buttons = {}
@@ -57,6 +58,7 @@ class CadenceApp(ctk.CTk):
             "current_student": None,
             "tracks": [],
             "current_track": None,
+            "timer_preset": None,
         }
 
         if self.login_page and self.login_page.winfo_exists():

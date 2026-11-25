@@ -1,7 +1,8 @@
 """Trends Screen for Cadence (chinni-app).
 
-Displays score trends across tests and spend rankings (calculates where
-the student should spend study hours to maximize score gain).
+Displays score trends across tests and a flexible, suggestive study mix
+that adapts to logged tests and Focus Timer blocks without assuming fixed
+weekly hours. Each suggestion can launch directly into the Focus Timer.
 """
 
 import customtkinter as ctk
@@ -27,14 +28,14 @@ class TrendsScreen(ctk.CTkFrame):
 
         ctk.CTkLabel(
             title_box,
-            text="SCORE TRENDS & SPEND RANKING",
+            text="SCORE TRENDS & SUGGESTED STUDY MIX",
             font=ctk.CTkFont(size=20, weight="bold"),
             text_color=("#0F172A", "#38BDF8"),
         ).pack(anchor="w")
 
         ctk.CTkLabel(
             title_box,
-            text="Data-driven guidance: Where to spend your next study hours",
+            text="Flexible chapter guidance that adapts to your tests and Focus Timer sessions",
             font=ctk.CTkFont(size=12),
             text_color=("#64748B", "#94A3B8"),
         ).pack(anchor="w")
@@ -52,19 +53,41 @@ class TrendsScreen(ctk.CTkFrame):
         self.scroll_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
         self.scroll_frame.pack(fill="both", expand=True, padx=15, pady=5)
 
-        # 1. Spend Ranking Recommendations Card
+        # 1. Suggestive Focus Mix Card
         self.ranking_card = ctk.CTkFrame(self.scroll_frame, fg_color=("#E2E8F0", "#1E293B"), corner_radius=12)
         self.ranking_card.pack(fill="x", pady=10)
 
         rank_head = ctk.CTkFrame(self.ranking_card, fg_color="transparent")
         rank_head.pack(fill="x", padx=20, pady=(15, 8))
 
+        head_left = ctk.CTkFrame(rank_head, fg_color="transparent")
+        head_left.pack(side="left", fill="x", expand=True)
+
         ctk.CTkLabel(
-            rank_head,
-            text="🎯 Recommended Chapter Focus & Study Hour Allocation (Next 20 Hours)",
+            head_left,
+            text="🧭 Suggested Study Mix (Fits Around Your Schedule)",
             font=ctk.CTkFont(size=15, weight="bold"),
             text_color=("#0F172A", "#38BDF8"),
-        ).pack(side="left")
+        ).pack(anchor="w")
+
+        ctk.CTkLabel(
+            head_left,
+            text="No rigid hour quotas — use these relative priorities whenever you have a free slot, or jump straight into a sprint",
+            font=ctk.CTkFont(size=11),
+            text_color=("#64748B", "#94A3B8"),
+        ).pack(anchor="w", pady=(2, 0))
+
+        self.timer_total_badge = ctk.CTkLabel(
+            rank_head,
+            text="⏱️ 0m logged",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color=("#CBD5E1", "#0F172A"),
+            text_color=("#0284C7", "#38BDF8"),
+            corner_radius=8,
+            padx=10,
+            pady=5,
+        )
+        self.timer_total_badge.pack(side="right")
 
         self.rankings_container = ctk.CTkFrame(self.ranking_card, fg_color="transparent")
         self.rankings_container.pack(fill="x", padx=20, pady=(0, 15))
@@ -79,6 +102,19 @@ class TrendsScreen(ctk.CTkFrame):
         self.trend_table = ctk.CTkFrame(self.scroll_frame, fg_color=("#E2E8F0", "#1E293B"), corner_radius=12)
         self.trend_table.pack(fill="x", pady=5)
 
+    def _start_sprint_from_suggestion(self, suggestion: dict):
+        """Send the chosen chapter & sprint preset directly to the Focus Timer."""
+        ch_code = suggestion.get("chapter_code") or ""
+        ch_name = suggestion.get("chapter_name") or ""
+        chapter_label = f"{ch_code}: {ch_name}" if ch_code else ch_name
+        self.app_state["timer_preset"] = {
+            "subject_name": suggestion.get("subject_name", ""),
+            "chapter_label": chapter_label,
+            "minutes": int(suggestion.get("suggested_minutes", 45)),
+            "style": suggestion.get("cadence_style", "Focused Drill"),
+        }
+        self.on_navigate("timer")
+
     def refresh_trends(self):
         curr_track = self.app_state.get("current_track")
         if not curr_track:
@@ -86,53 +122,85 @@ class TrendsScreen(ctk.CTkFrame):
 
         track_id = curr_track["id"]
 
-        # Render Spend Rankings
+        # Render Suggestive Focus Mix
         for w in self.rankings_container.winfo_children():
             w.destroy()
 
         try:
-            rankings_data = api_client.get_focus_rankings(track_id, available_hours=20.0)
-            allocations = rankings_data.get("recommended_allocations", [])
+            rankings_data = api_client.get_focus_rankings(track_id)
+            timer_summary = rankings_data.get("timer_summary", {})
+            total_mins = int(timer_summary.get("total_minutes", 0))
+            sess_count = int(timer_summary.get("session_count", 0))
+            hrs, rem = divmod(total_mins, 60)
+            time_str = f"{hrs}h {rem}m" if hrs > 0 else f"{rem}m"
+            self.timer_total_badge.configure(text=f"⏱️ {time_str} across {sess_count} sprints")
 
-            if not allocations:
+            suggestions = rankings_data.get("focus_suggestions") or []
+            if not suggestions:
                 ctk.CTkLabel(
                     self.rankings_container,
-                    text="Log tests with syllabus chapters to calculate chapter focus recommendations.",
+                    text="Log tests with syllabus chapters to get personalized study suggestions.",
                     text_color="#94A3B8",
                 ).pack(pady=10)
             else:
-                for alloc in allocations:
+                tier_labels = {
+                    "HIGH": ("HIGH LEVERAGE", "#EF4444"),
+                    "MEDIUM": ("MOMENTUM", "#F59E0B"),
+                    "LOW": ("KEEP SHARP", "#10B981"),
+                }
+                for sug in suggestions:
                     row = ctk.CTkFrame(self.rankings_container, fg_color=("#CBD5E1", "#0F172A"), corner_radius=8)
-                    row.pack(fill="x", pady=4)
+                    row.pack(fill="x", pady=5)
 
                     inner = ctk.CTkFrame(row, fg_color="transparent")
-                    inner.pack(fill="x", padx=12, pady=10)
+                    inner.pack(fill="x", padx=14, pady=10)
 
-                    # Priority badge
-                    prio = alloc.get("priority", "MEDIUM")
-                    badge_color = "#EF4444" if prio == "HIGH" else "#F59E0B"
+                    # Left column: Tier + Chapter + Suggestive Reason
+                    left = ctk.CTkFrame(inner, fg_color="transparent")
+                    left.pack(side="left", fill="x", expand=True)
+
+                    top_line = ctk.CTkFrame(left, fg_color="transparent")
+                    top_line.pack(anchor="w")
+
+                    prio = sug.get("priority", "MEDIUM")
+                    tier_txt, badge_color = tier_labels.get(prio, ("FOCUS", "#38BDF8"))
                     ctk.CTkLabel(
-                        inner,
-                        text=f"[{prio}]",
+                        top_line,
+                        text=f"[{tier_txt}]",
                         font=ctk.CTkFont(size=11, weight="bold"),
                         text_color=badge_color,
                     ).pack(side="left", padx=(0, 8))
 
-                    # Group and Subject
+                    ch_code = sug.get("chapter_code", "")
+                    ch_name = sug.get("chapter_name", "")
                     ctk.CTkLabel(
-                        inner,
-                        text=f"{alloc.get('subject_name', '')} • {alloc.get('group_code', '')}: {alloc.get('group_name', '')}",
+                        top_line,
+                        text=f"{sug.get('subject_name', '')} • {ch_code}: {ch_name}",
                         font=ctk.CTkFont(size=13, weight="bold"),
                     ).pack(side="left")
 
-                    # Recommended hours
-                    hrs = alloc.get("recommended_hours", 0.0)
+                    share_pct = sug.get("effort_share_percent", 20)
+                    style = sug.get("cadence_style", "Timed Practice")
+                    reason = sug.get("reason", "")
                     ctk.CTkLabel(
+                        left,
+                        text=f"Suggested: {style} (~{share_pct}% of your study time)   |   {reason}",
+                        font=ctk.CTkFont(size=11),
+                        text_color=("#475569", "#94A3B8"),
+                    ).pack(anchor="w", pady=(3, 0))
+
+                    # Right: Direct Launch Sprint Button -> Focus Timer
+                    mins = int(sug.get("suggested_minutes", 45))
+                    ctk.CTkButton(
                         inner,
-                        text=f"Allocate {hrs:.1f} Hours",
-                        font=ctk.CTkFont(size=13, weight="bold"),
-                        text_color=("#0284C7", "#38BDF8"),
-                    ).pack(side="right")
+                        text=f"▶ Start {mins}m Sprint",
+                        font=ctk.CTkFont(size=12, weight="bold"),
+                        fg_color="#7C3AED",
+                        hover_color="#6D28D9",
+                        width=140,
+                        height=34,
+                        command=lambda s=sug: self._start_sprint_from_suggestion(s),
+                    ).pack(side="right", padx=(10, 0))
 
         except Exception as e:
             print(f"[TrendsScreen Ranking Error] {e}")
@@ -147,7 +215,6 @@ class TrendsScreen(ctk.CTkFrame):
                 ctk.CTkLabel(self.trend_table, text="No tests recorded yet.", text_color="#94A3B8").pack(pady=15)
                 return
 
-            # Table Header — dynamically built from subject codes in first test
             th = ctk.CTkFrame(self.trend_table, fg_color="transparent")
             th.pack(fill="x", padx=15, pady=(12, 6))
 
@@ -155,7 +222,6 @@ class TrendsScreen(ctk.CTkFrame):
             ctk.CTkLabel(th, text="Date", width=110, font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
             ctk.CTkLabel(th, text="Total Score", width=120, font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
 
-            # Collect all subject codes from all tests (preserving insertion order)
             subject_code_order = []
             seen_codes = set()
             for t in tests:
@@ -195,7 +261,6 @@ class TrendsScreen(ctk.CTkFrame):
                     text_color=("#0284C7", "#38BDF8"),
                 ).pack(side="left")
 
-                # Extract subject scores — keyed by code for dynamic columns
                 sub_scores = {
                     s.get("subject_code") or s.get("subject_name", "?"): s["score"]
                     for s in t.get("subject_scores", [])
@@ -206,7 +271,6 @@ class TrendsScreen(ctk.CTkFrame):
                     ctk.CTkLabel(r_inner, text=display, width=80).pack(side="left")
                 ctk.CTkLabel(r_inner, text=t.get("notes", "") or "-", text_color="#94A3B8").pack(side="left", padx=10)
 
-            # Bottom padding
             ctk.CTkFrame(self.trend_table, height=10, fg_color="transparent").pack()
 
         except Exception as e:

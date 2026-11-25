@@ -2,6 +2,7 @@ from backend.services.spend_ranking import rank_groups_to_focus, rank_subjects_t
 from backend.services.planning import (
     calculate_adherence_percentage,
     allocate_study_hours,
+    build_flexible_focus_suggestions,
     summarize_adherence,
 )
 
@@ -95,3 +96,25 @@ def test_spend_ranking_chapters():
     assert ranked[0]["chapter_name"] == "Rotational Motion"
     assert ranked[0]["priority"] == "HIGH"
     assert ranked[1]["priority"] == "LOW"
+
+
+def test_flexible_suggestions_respond_to_timer_sessions():
+    chapter_records = [
+        {"chapter_id": 10, "chapter_code": "P04", "chapter_name": "Rotational Motion", "subject_id": 2, "subject_name": "Physics", "subject_code": "PHY", "score": 52.0, "max_score": 100.0},
+        {"chapter_id": 12, "chapter_code": "M03", "chapter_name": "Matrices & Determinants", "subject_id": 1, "subject_name": "Mathematics", "subject_code": "MATH", "score": 52.0, "max_score": 100.0},
+    ]
+    # Student already practiced Rotational Motion for 120 mins in the Focus Timer
+    sessions = [
+        {"chapter_id": 10, "duration_minutes": 120},
+    ]
+    ranked = rank_chapters_to_focus(chapter_records, focus_sessions=sessions)
+    # Neglected chapter M03 should rank above P04 which already has timer effort
+    assert ranked[0]["chapter_code"] == "M03"
+    assert ranked[0]["recent_focus_minutes"] == 0
+    assert ranked[1]["recent_focus_minutes"] == 120
+
+    suggestions = build_flexible_focus_suggestions(ranked)
+    assert len(suggestions) == 2
+    assert sum(s["effort_share_percent"] for s in suggestions) == 100
+    assert suggestions[0]["suggested_minutes"] in (25, 45, 60)
+    assert "No timer blocks logged yet" in suggestions[0]["reason"]

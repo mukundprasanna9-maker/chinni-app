@@ -165,7 +165,7 @@ class HomeScreen(ctk.CTkFrame):
 
         btn_trends = ctk.CTkButton(
             actions_frame,
-            text="📈 Trends & Spend Ranking",
+            text="📈 Trends & Study Mix",
             font=ctk.CTkFont(size=13, weight="bold"),
             fg_color="#0D9488",
             hover_color="#0F766E",
