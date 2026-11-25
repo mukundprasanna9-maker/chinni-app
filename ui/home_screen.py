@@ -198,7 +198,8 @@ class HomeScreen(ctk.CTkFrame):
             self.student_menu.configure(values=student_names)
 
             curr_s = self.app_state.get("current_student")
-            if not curr_s or curr_s["name"] not in student_names:
+            student_ids = [s["id"] for s in students]
+            if not curr_s or curr_s["id"] not in student_ids:
                 curr_s = students[0]
                 self.app_state["current_student"] = curr_s
 
@@ -212,10 +213,11 @@ class HomeScreen(ctk.CTkFrame):
 
             self.app_state["tracks"] = tracks
             track_names = [t["name"] for t in tracks]
+            track_ids = [t["id"] for t in tracks]
             self.track_menu.configure(values=track_names)
 
             curr_t = self.app_state.get("current_track")
-            if not curr_t or curr_t["name"] not in track_names:
+            if not curr_t or curr_t["id"] not in track_ids:
                 curr_t = tracks[0]
                 self.app_state["current_track"] = curr_t
 

@@ -7,12 +7,16 @@ from backend.api.tracks import router as tracks_router
 from backend.api.tests import router as tests_router
 from backend.api.plans import router as plans_router
 from backend.api.analytics import router as analytics_router
+from backend.api.auth import router as auth_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
         init_db()
+        # Ensure a default admin account exists
+        from backend.repositories.user_repo import ensure_admin_exists
+        ensure_admin_exists()
     except Exception as e:
         print(f"[Startup Warning] DB init encountered: {e}")
     yield
@@ -34,6 +38,7 @@ app.add_middleware(
 )
 
 # Register routers
+app.include_router(auth_router)
 app.include_router(students_router)
 app.include_router(tracks_router)
 app.include_router(tests_router)

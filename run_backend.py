@@ -10,6 +10,9 @@ if __name__ == "__main__":
     try:
         init_db()
         print("[Database] Schema initialized successfully.")
+        # Ensure a default admin account exists
+        from backend.repositories.user_repo import ensure_admin_exists
+        ensure_admin_exists()
     except Exception as e:
         print(f"[Database Warning] {e}")
 

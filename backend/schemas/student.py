@@ -17,4 +17,5 @@ class StudentResponse(BaseModel):
     id: int
     name: str
     target_score: int
+    user_id: Optional[int] = None
     created_at: Optional[datetime] = None

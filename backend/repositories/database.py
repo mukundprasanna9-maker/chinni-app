@@ -144,11 +144,22 @@ def get_connection(include_db: bool = True):
 
 SCHEMA_SQL = [
     """
+    CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(100) NOT NULL UNIQUE,
+        password_hash VARCHAR(255) NOT NULL,
+        is_admin TINYINT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    """,
+    """
     CREATE TABLE IF NOT EXISTS students (
         id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT,
         name VARCHAR(100) NOT NULL,
         target_score INT DEFAULT 235,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     """,
     """
@@ -273,6 +284,12 @@ def init_db():
         cursor = db_conn.cursor()
         for stmt in SCHEMA_SQL:
             cursor.execute(stmt)
+        # Migration: add user_id column to students if it doesn't exist
+        try:
+            cursor.execute("SELECT user_id FROM students LIMIT 1")
+        except Exception:
+            cursor.execute("ALTER TABLE students ADD COLUMN user_id INT DEFAULT NULL")
+            cursor.execute("ALTER TABLE students ADD CONSTRAINT fk_students_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE")
         db_conn.commit()
         cursor.close()
         db_conn.close()
@@ -291,9 +308,15 @@ def init_db():
                 s,
                 flags=re.IGNORECASE,
             )
+            # Remove MySQL-only UNIQUE constraint syntax (handled by SQLite natively)
             # Remove MySQL-only engine/charset suffix
             s = re.sub(r"\)\s*ENGINE=InnoDB[^;]*;", ");", s, flags=re.IGNORECASE)
             raw_conn.execute(s)
+        # Migration: add user_id column to students if it doesn't exist (SQLite)
+        try:
+            raw_conn.execute("SELECT user_id FROM students LIMIT 1")
+        except Exception:
+            raw_conn.execute("ALTER TABLE students ADD COLUMN user_id INTEGER DEFAULT NULL REFERENCES users(id)")
         raw_conn.commit()
         raw_conn.close()
     return True

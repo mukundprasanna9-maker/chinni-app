@@ -2,15 +2,16 @@
 
 Sets up the CustomTkinter root application, manages global app state,
 provides the persistent navigation bar, and switches between screens.
+Launches teammate's LoginPage gate before showing the main dashboard.
 """
 
-import sys
 import customtkinter as ctk
 from ui import api_client
 from ui.home_screen import HomeScreen
 from ui.tests_screen import TestsScreen
 from ui.trends_screen import TrendsScreen
 from ui.focus_timer import FocusTimerScreen
+from login_page import LoginPage
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
@@ -31,11 +32,57 @@ class CadenceApp(ctk.CTk):
             "tracks": [],
             "current_track": None,
         }
+        self.screens = {}
+        self.nav_buttons = {}
+        self.login_window = None
+
+        # Hide main window until user logs in or signs up
+        self.withdraw()
+        self._show_login()
+
+    # ── Auth Flow ──────────────────────────────────────────────────────
+
+    def _show_login(self):
+        """Open the LoginPage popup while keeping the main window hidden."""
+        self.login_window = LoginPage(
+            self,
+            on_success_callback=self._on_login_success,
+            on_close_callback=self.destroy,
+        )
+
+    def _on_login_success(self, user: dict):
+        """Called once LoginPage authenticates the user."""
+        api_client.set_current_user(user)
+        self.app_state = {
+            "students": [],
+            "current_student": None,
+            "tracks": [],
+            "current_track": None,
+        }
 
         self._build_sidebar()
         self._build_main_container()
         self._check_backend_status()
         self.navigate("home")
+        self.deiconify()
+
+    def _on_logout(self):
+        """Log out current user, tear down UI, and return to LoginPage."""
+        api_client.logout()
+        for screen in self.screens.values():
+            screen.destroy()
+        self.screens.clear()
+        self.nav_buttons.clear()
+
+        if hasattr(self, "sidebar") and self.sidebar.winfo_exists():
+            self.sidebar.destroy()
+        if hasattr(self, "main_container") and self.main_container.winfo_exists():
+            self.main_container.destroy()
+
+        self.withdraw()
+        self._show_login()
+
+    # ── Main UI ────────────────────────────────────────────────────────
 
     def _build_sidebar(self):
         self.sidebar = ctk.CTkFrame(self, width=220, corner_radius=0, fg_color=("#F1F5F9", "#0F172A"))
@@ -44,7 +91,7 @@ class CadenceApp(ctk.CTk):
 
         # Brand
         brand_box = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        brand_box.pack(fill="x", padx=20, pady=(25, 20))
+        brand_box.pack(fill="x", padx=20, pady=(25, 5))
 
         ctk.CTkLabel(
             brand_box,
@@ -59,6 +106,32 @@ class CadenceApp(ctk.CTk):
             font=ctk.CTkFont(size=11),
             text_color=("#64748B", "#94A3B8"),
         ).pack(anchor="w")
+
+        # Logged-in-as badge & Logout button
+        user = api_client.get_current_user()
+        username = user.get("username", "User") if user else "User"
+        role_text = "🛡️ Admin" if api_client.is_admin() else "👤 User"
+
+        user_box = ctk.CTkFrame(self.sidebar, fg_color=("#E2E8F0", "#1E293B"), corner_radius=8)
+        user_box.pack(fill="x", padx=14, pady=(10, 10))
+
+        ctk.CTkLabel(
+            user_box,
+            text=f"{role_text}: {username}",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=("#0F172A", "#F8FAFC"),
+            wraplength=175,
+        ).pack(padx=10, pady=(8, 2))
+
+        ctk.CTkButton(
+            user_box,
+            text="🚪 Log Out",
+            font=ctk.CTkFont(size=11),
+            height=26,
+            fg_color="#EF4444",
+            hover_color="#DC2626",
+            command=self._on_logout,
+        ).pack(fill="x", padx=10, pady=(4, 8))
 
         # Nav Buttons
         nav_box = ctk.CTkFrame(self.sidebar, fg_color="transparent")

@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException, status
-from typing import List
+from fastapi import APIRouter, HTTPException, Query, status
+from typing import List, Optional
 from backend.schemas.student import StudentCreate, StudentUpdate, StudentResponse
 from backend.repositories.student_repo import (
     create_student,
@@ -13,13 +13,13 @@ router = APIRouter(prefix="/students", tags=["Students"])
 
 
 @router.get("", response_model=List[StudentResponse])
-def list_students():
-    return get_all_students()
+def list_students(user_id: Optional[int] = Query(None, description="Filter by user_id. Omit to list all (admin).")):
+    return get_all_students(user_id=user_id)
 
 
 @router.post("", response_model=StudentResponse, status_code=status.HTTP_201_CREATED)
-def add_student(payload: StudentCreate):
-    return create_student(payload.name, payload.target_score)
+def add_student(payload: StudentCreate, user_id: Optional[int] = Query(None)):
+    return create_student(payload.name, payload.target_score, user_id=user_id)
 
 
 @router.get("/{student_id}", response_model=StudentResponse)

@@ -11,6 +11,43 @@ from typing import List, Dict, Any, Optional
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
 
+# ── Auth state (set after login/signup) ──────────────────────────────
+_current_user: Optional[Dict[str, Any]] = None
+
+
+def set_current_user(user: Optional[Dict[str, Any]]) -> None:
+    global _current_user
+    _current_user = user
+
+
+def get_current_user() -> Optional[Dict[str, Any]]:
+    return _current_user
+
+
+def is_admin() -> bool:
+    return bool(_current_user and _current_user.get("is_admin"))
+
+
+def current_user_id() -> Optional[int]:
+    return _current_user["id"] if _current_user else None
+
+
+# ── Auth API calls ───────────────────────────────────────────────────
+def login(username: str, password: str) -> Dict[str, Any]:
+    user = _post("/auth/login", {"username": username, "password": password})
+    set_current_user(user)
+    return user
+
+
+def signup(username: str, password: str) -> Dict[str, Any]:
+    user = _post("/auth/signup", {"username": username, "password": password})
+    set_current_user(user)
+    return user
+
+
+def logout() -> None:
+    set_current_user(None)
+
 
 def _get(endpoint: str, params: Optional[Dict[str, Any]] = None) -> Any:
     url = f"{API_BASE_URL}{endpoint}"
@@ -43,6 +80,12 @@ def check_backend_health() -> bool:
 
 # Student Operations
 def get_students() -> List[Dict[str, Any]]:
+    # Admin sees all students; regular users see only their own
+    if is_admin():
+        return _get("/students")
+    uid = current_user_id()
+    if uid is not None:
+        return _get("/students", params={"user_id": uid})
     return _get("/students")
 
 
@@ -51,7 +94,9 @@ def get_student(student_id: int) -> Dict[str, Any]:
 
 
 def create_student(name: str, target_score: int = 235) -> Dict[str, Any]:
-    return _post("/students", {"name": name, "target_score": target_score})
+    uid = current_user_id()
+    endpoint = f"/students?user_id={uid}" if uid is not None else "/students"
+    return _post(endpoint, {"name": name, "target_score": target_score})
 
 
 # Track Operations
